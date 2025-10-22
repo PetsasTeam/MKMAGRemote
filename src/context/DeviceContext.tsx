@@ -22,7 +22,16 @@ const defaultSettings: AppSettings = {
   vibrationEnabled: true,
   soundEnabled: true,
   autoConnect: false,
+  defaultRemoteMode: 'standard',
+  showAdvancedControls: true,
+  buttonSize: 'medium',
+  enableGestures: true,
+  hapticFeedbackStrength: 'medium',
   savedDevices: [],
+  macros: [],
+  quickActions: [],
+  appShortcuts: [],
+  favorites: [],
 };
 
 const DeviceContext = createContext<DeviceContextType | undefined>(undefined);

@@ -158,6 +158,29 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         </Paragraph>
       </View>
 
+      {savedDevices.length > 0 && (
+        <View style={styles.quickAccessContainer}>
+          <Card style={styles.quickAccessCard}>
+            <Card.Content>
+              <View style={styles.quickAccessButtons}>
+                <TouchableOpacity
+                  style={styles.quickAccessButton}
+                  onPress={() => navigation.navigate('Macros')}>
+                  <Text style={styles.quickAccessIcon}>⚡</Text>
+                  <Text style={styles.quickAccessLabel}>Macros</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.quickAccessButton}
+                  onPress={() => navigation.navigate('QuickActions')}>
+                  <Text style={styles.quickAccessIcon}>⭐</Text>
+                  <Text style={styles.quickAccessLabel}>Quick Actions</Text>
+                </TouchableOpacity>
+              </View>
+            </Card.Content>
+          </Card>
+        </View>
+      )}
+
       {savedDevices.length === 0 ? (
         <View style={styles.emptyContainer}>
           <IconButton icon="television" size={80} iconColor={theme.colors.primary} />
@@ -288,6 +311,31 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: 10,
+  },
+  quickAccessContainer: {
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  quickAccessCard: {
+    backgroundColor: 'rgba(0, 168, 232, 0.1)',
+  },
+  quickAccessButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    gap: 16,
+  },
+  quickAccessButton: {
+    alignItems: 'center',
+    padding: 12,
+    flex: 1,
+  },
+  quickAccessIcon: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  quickAccessLabel: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 

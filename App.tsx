@@ -15,6 +15,8 @@ import HomeScreen from './src/screens/HomeScreen';
 import RemoteScreen from './src/screens/RemoteScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import DeviceDiscoveryScreen from './src/screens/DeviceDiscoveryScreen';
+import MacrosScreen from './src/screens/MacrosScreen';
+import QuickActionsScreen from './src/screens/QuickActionsScreen';
 
 // Context
 import { DeviceProvider } from './src/context/DeviceContext';
@@ -25,6 +27,8 @@ export type RootStackParamList = {
   Remote: { deviceId: string; deviceName: string; deviceIp: string };
   Settings: undefined;
   DeviceDiscovery: undefined;
+  Macros: undefined;
+  QuickActions: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -84,6 +88,16 @@ function App(): React.JSX.Element {
                 name="DeviceDiscovery"
                 component={DeviceDiscoveryScreen}
                 options={{ title: 'Find MAG Devices' }}
+              />
+              <Stack.Screen
+                name="Macros"
+                component={MacrosScreen}
+                options={{ title: 'Macros' }}
+              />
+              <Stack.Screen
+                name="QuickActions"
+                component={QuickActionsScreen}
+                options={{ title: 'Quick Actions' }}
               />
             </Stack.Navigator>
           </NavigationContainer>

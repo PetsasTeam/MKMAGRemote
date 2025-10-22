@@ -93,17 +93,65 @@ export interface DeviceConnection {
   error?: string;
 }
 
+export interface Macro {
+  id: string;
+  name: string;
+  icon: string;
+  commands: MAGCommand[];
+  delay?: number; // Delay between commands in ms
+  description?: string;
+}
+
+export interface QuickAction {
+  id: string;
+  name: string;
+  icon: string;
+  command: MAGCommand;
+  color?: string;
+}
+
+export interface AppShortcut {
+  id: string;
+  name: string;
+  icon: string;
+  channel?: number;
+  portal?: string;
+  description?: string;
+}
+
+export type RemoteMode = 'standard' | 'gesture' | 'touchpad' | 'keyboard';
+
 export interface AppSettings {
-  theme: 'light' | 'dark';
+  theme: 'light' | 'dark' | 'auto';
+  accentColor?: string;
   vibrationEnabled: boolean;
   soundEnabled: boolean;
   autoConnect: boolean;
+  defaultRemoteMode: RemoteMode;
+  showAdvancedControls: boolean;
+  buttonSize: 'small' | 'medium' | 'large';
+  enableGestures: boolean;
+  hapticFeedbackStrength: 'light' | 'medium' | 'strong';
   lastDevice?: MAGDevice;
   savedDevices: MAGDevice[];
+  macros: Macro[];
+  quickActions: QuickAction[];
+  appShortcuts: AppShortcut[];
+  favorites: MAGCommand[];
 }
 
 export interface DiscoveryResult {
   devices: MAGDevice[];
   scanning: boolean;
   error?: string;
+}
+
+export interface RemoteProfile {
+  id: string;
+  name: string;
+  icon: string;
+  layout: 'standard' | 'compact' | 'extended' | 'custom';
+  customButtons?: RemoteKey[];
+  backgroundColor?: string;
+  buttonColor?: string;
 }
