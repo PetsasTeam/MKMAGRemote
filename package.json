@@ -1,0 +1,63 @@
+{
+  "name": "iptv-mk-remote",
+  "version": "1.0.0",
+  "description": "Modern remote control app for Infomir MAG IPTV devices",
+  "main": "index.js",
+  "scripts": {
+    "android": "react-native run-android",
+    "ios": "react-native run-ios",
+    "start": "react-native start",
+    "test": "jest",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,scss,md}\""
+  },
+  "keywords": [
+    "MAG",
+    "IPTV",
+    "remote",
+    "control",
+    "Infomir",
+    "STB",
+    "set-top-box"
+  ],
+  "author": "PetsasTeam",
+  "license": "MIT",
+  "dependencies": {
+    "react": "18.2.0",
+    "react-native": "0.73.2",
+    "react-native-paper": "^5.12.3",
+    "react-native-vector-icons": "^10.0.3",
+    "@react-navigation/native": "^6.1.9",
+    "@react-navigation/stack": "^6.3.20",
+    "react-native-screens": "^3.29.0",
+    "react-native-safe-area-context": "^4.8.2",
+    "react-native-gesture-handler": "^2.14.1",
+    "axios": "^1.6.5",
+    "react-native-udp": "^4.1.6",
+    "react-native-tcp-socket": "^6.0.6",
+    "react-native-network-info": "^5.2.1",
+    "@react-native-async-storage/async-storage": "^1.21.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.23.7",
+    "@babel/preset-env": "^7.23.7",
+    "@babel/runtime": "^7.23.7",
+    "@react-native/eslint-config": "^0.73.2",
+    "@react-native/metro-config": "^0.73.3",
+    "@react-native/typescript-config": "^0.73.1",
+    "@types/react": "^18.2.48",
+    "@types/react-native": "^0.73.0",
+    "@typescript-eslint/eslint-plugin": "^6.19.0",
+    "@typescript-eslint/parser": "^6.19.0",
+    "babel-jest": "^29.7.0",
+    "eslint": "^8.56.0",
+    "jest": "^29.7.0",
+    "metro-react-native-babel-preset": "^0.77.0",
+    "prettier": "^3.2.4",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18",
+    "npm": ">=9"
+  }
+}
