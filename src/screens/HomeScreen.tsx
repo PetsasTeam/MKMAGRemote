@@ -28,7 +28,8 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../App';
 import { useDevice } from '../context/DeviceContext';
 import { MAGDevice } from '../types';
-import MAGService from '../services/MAGService';
+import { useMagConnect } from '../hooks/useMagConnect';
+import { isValidIPv4, makeMagDevice } from '../services/DeviceDiscoveryService';
 
 type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Home'>;
 
@@ -38,11 +39,16 @@ interface Props {
 
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const theme = useTheme();
-  const { savedDevices, setCurrentDevice, addSavedDevice, removeSavedDevice } = useDevice();
-  const [connecting, setConnecting] = useState(false);
+  const { savedDevices, removeSavedDevice } = useDevice();
   const [showManualDialog, setShowManualDialog] = useState(false);
   const [manualIp, setManualIp] = useState('');
-  const [manualPort, setManualPort] = useState('80');
+  const { connect, connectingId, pairingDialog } = useMagConnect(device =>
+    navigation.navigate('Remote', {
+      deviceId: device.id,
+      deviceName: device.name,
+      deviceIp: device.ip,
+    }),
+  );
 
   useEffect(() => {
     navigation.setOptions({
@@ -56,52 +62,15 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     });
   }, [navigation]);
 
-  const handleConnect = async (device: MAGDevice) => {
-    setConnecting(true);
-    try {
-      const connected = await MAGService.connect(device);
-      if (connected) {
-        setCurrentDevice(device);
-        await addSavedDevice(device);
-        navigation.navigate('Remote', {
-          deviceId: device.id,
-          deviceName: device.name,
-          deviceIp: device.ip,
-        });
-      } else {
-        Alert.alert(
-          'Connection Failed',
-          'Could not connect to the MAG device. Please check:\n\n' +
-          '1. Device is powered on\n' +
-          '2. Both devices are on the same WiFi network\n' +
-          '3. Remote Control is enabled on the MAG box\n' +
-          '4. IP address is correct'
-        );
-      }
-    } catch (error) {
-      Alert.alert('Error', 'An error occurred while connecting to the device.');
-    } finally {
-      setConnecting(false);
-    }
-  };
-
-  const handleManualConnect = async () => {
-    if (!manualIp) {
-      Alert.alert('Error', 'Please enter an IP address');
+  const handleManualConnect = () => {
+    const ip = manualIp.trim();
+    if (!isValidIPv4(ip)) {
+      Alert.alert('Invalid IP address', 'Enter the IP shown on the box, e.g. 192.168.1.50');
       return;
     }
-
-    const device: MAGDevice = {
-      id: `${manualIp}:${manualPort}`,
-      name: `MAG Device (${manualIp})`,
-      ip: manualIp,
-      port: parseInt(manualPort, 10),
-    };
-
     setShowManualDialog(false);
-    await handleConnect(device);
     setManualIp('');
-    setManualPort('80');
+    connect(makeMagDevice(ip));
   };
 
   const handleDeleteDevice = (deviceId: string) => {
@@ -125,10 +94,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.cardHeader}>
           <View style={styles.cardInfo}>
             <Title>{item.name}</Title>
-            <Paragraph>
-              {item.ip}:{item.port}
+            <Paragraph>{item.ip}</Paragraph>
+            <Paragraph style={styles.modelText}>
+              {item.pairingCode ? 'Paired' : 'Not paired yet (you will be asked for a code)'}
             </Paragraph>
-            {item.model && <Paragraph style={styles.modelText}>Model: {item.model}</Paragraph>}
           </View>
           <IconButton
             icon="delete"
@@ -140,9 +109,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       <Card.Actions>
         <Button
           mode="contained"
-          onPress={() => handleConnect(item)}
-          loading={connecting}
-          disabled={connecting}>
+          onPress={() => connect(item)}
+          loading={connectingId === item.id}
+          disabled={connectingId !== null}>
           Connect
         </Button>
       </Card.Actions>
@@ -228,19 +197,14 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               value={manualIp}
               onChangeText={setManualIp}
               placeholder="192.168.1.100"
-              keyboardType="numeric"
+              keyboardType="decimal-pad"
+              autoCorrect={false}
               mode="outlined"
               style={styles.input}
             />
-            <TextInput
-              label="Port"
-              value={manualPort}
-              onChangeText={setManualPort}
-              placeholder="80"
-              keyboardType="numeric"
-              mode="outlined"
-              style={styles.input}
-            />
+            <Paragraph style={styles.dialogHint}>
+              Find it on the box under Settings → System settings → Network / Info.
+            </Paragraph>
           </Dialog.Content>
           <Dialog.Actions>
             <Button onPress={() => setShowManualDialog(false)}>Cancel</Button>
@@ -248,6 +212,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           </Dialog.Actions>
         </Dialog>
       </Portal>
+
+      {pairingDialog}
     </View>
   );
 };
@@ -311,6 +277,9 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: 10,
+  },
+  dialogHint: {
+    opacity: 0.7,
   },
   quickAccessContainer: {
     paddingHorizontal: 16,

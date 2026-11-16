@@ -19,6 +19,9 @@ import {
   Portal,
   Snackbar,
   Surface,
+  Dialog,
+  Button,
+  TextInput,
 } from 'react-native-paper';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
@@ -62,12 +65,15 @@ const RemoteButton: React.FC<RemoteButtonProps> = ({
 
   const dimensions = sizeMap[size];
   const backgroundColor = color || theme.colors.surface;
+  // Buttons without a known MAG rc code are shown dimmed.
+  const supported = MAGService.isCommandSupported(command);
 
   return (
     <TouchableOpacity
       style={[
         styles.button,
         { width: dimensions.width, height: dimensions.height, backgroundColor },
+        !supported && styles.unsupported,
       ]}
       onPress={() => onPress(command)}
       activeOpacity={0.7}>
@@ -86,6 +92,16 @@ const RemoteScreen: React.FC<Props> = ({ navigation, route }) => {
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [isConnected, setIsConnected] = useState(true);
+  const [showTextDialog, setShowTextDialog] = useState(false);
+  const [text, setText] = useState('');
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <IconButton icon="keyboard" size={24} onPress={() => setShowTextDialog(true)} />
+      ),
+    });
+  }, [navigation]);
 
   useEffect(() => {
     // Check connection status
@@ -107,6 +123,11 @@ const RemoteScreen: React.FC<Props> = ({ navigation, route }) => {
       return;
     }
 
+    if (!MAGService.isCommandSupported(command)) {
+      showMessage('This button is not available over the Wi-Fi remote');
+      return;
+    }
+
     // Haptic feedback
     if (settings.vibrationEnabled) {
       Vibration.vibrate(50);
@@ -123,6 +144,14 @@ const RemoteScreen: React.FC<Props> = ({ navigation, route }) => {
   const showMessage = (message: string) => {
     setSnackbarMessage(message);
     setSnackbarVisible(true);
+  };
+
+  const handleSendText = async () => {
+    const value = text;
+    setShowTextDialog(false);
+    setText('');
+    const success = await MAGService.sendText(value);
+    showMessage(success ? 'Text sent' : 'Failed to send text');
   };
 
   return (
@@ -473,6 +502,30 @@ const RemoteScreen: React.FC<Props> = ({ navigation, route }) => {
       </ScrollView>
 
       <Portal>
+        <Dialog visible={showTextDialog} onDismiss={() => setShowTextDialog(false)}>
+          <Dialog.Title>Type on TV</Dialog.Title>
+          <Dialog.Content>
+            <TextInput
+              label="Text"
+              value={text}
+              onChangeText={setText}
+              autoFocus
+              autoCapitalize="none"
+              autoCorrect={false}
+              mode="outlined"
+              onSubmitEditing={handleSendText}
+            />
+            <Text style={styles.dialogHint}>
+              Select a text field on the TV first (search, URL, login), then send.
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowTextDialog(false)}>Cancel</Button>
+            <Button onPress={handleSendText} disabled={!text}>
+              Send
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
         <Snackbar
           visible={snackbarVisible}
           onDismiss={() => setSnackbarVisible(false)}
@@ -524,6 +577,13 @@ const styles = StyleSheet.create({
   buttonText: {
     fontWeight: 'bold',
     color: '#FFFFFF',
+  },
+  unsupported: {
+    opacity: 0.35,
+  },
+  dialogHint: {
+    marginTop: 8,
+    opacity: 0.7,
   },
   dpadSection: {
     marginBottom: 20,

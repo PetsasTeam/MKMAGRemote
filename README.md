@@ -53,7 +53,7 @@ A modern, feature-rich mobile remote control app for Infomir MAG IPTV devices wi
 ## 📋 Requirements
 
 ### For the App
-- iOS 13.0+ or Android 6.0+
+- iOS 14.0+ or Android 6.0+
 - WiFi connection
 
 ### For Your MAG Box
@@ -82,8 +82,13 @@ A modern, feature-rich mobile remote control app for Infomir MAG IPTV devices wi
 2. **Connect via App**:
    - Open IPTV MK Remote app
    - Tap "Find Devices" to auto-discover your MAG box
+     (on iPhone, tap **Allow** when asked about Local Network access, then scan again)
    - Or manually enter the IP address
    - Tap "Connect"
+   - **First time only:** the TV shows a 6-digit pairing code. Type it into the app.
+
+   The app uses the same protocol as Infomir's official MAGic Remote app
+   (TCP port 40611). See [docs/MAG_REMOTE_PROTOCOL.md](docs/MAG_REMOTE_PROTOCOL.md).
 
 3. **Start Controlling**:
    - Choose your preferred control mode (Standard/Gesture/Touchpad/Keyboard)

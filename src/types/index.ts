@@ -11,6 +11,8 @@ export interface MAGDevice {
   macAddress?: string;
   lastConnected?: Date;
   isConnected?: boolean;
+  /** 6-digit code shown on the TV during pairing; also the encryption key. */
+  pairingCode?: string;
 }
 
 export interface RemoteKey {
