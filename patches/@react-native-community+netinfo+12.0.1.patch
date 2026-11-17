@@ -1,0 +1,55 @@
+diff --git a/node_modules/@react-native-community/netinfo/ios/RNCConnectionState.m b/node_modules/@react-native-community/netinfo/ios/RNCConnectionState.m
+index 5a807a4..a251ff0 100644
+--- a/node_modules/@react-native-community/netinfo/ios/RNCConnectionState.m
++++ b/node_modules/@react-native-community/netinfo/ios/RNCConnectionState.m
+@@ -48,23 +48,24 @@
+ 
+             CTTelephonyNetworkInfo *netinfo = [[CTTelephonyNetworkInfo alloc] init];
+             if (netinfo) {
+-                if ([netinfo.currentRadioAccessTechnology isEqualToString:CTRadioAccessTechnologyGPRS] ||
+-                    [netinfo.currentRadioAccessTechnology isEqualToString:CTRadioAccessTechnologyEdge] ||
+-                    [netinfo.currentRadioAccessTechnology isEqualToString:CTRadioAccessTechnologyCDMA1x]) {
++                NSString *radioTech = [[netinfo serviceCurrentRadioAccessTechnology] allValues].firstObject;
++                if ([radioTech isEqualToString:CTRadioAccessTechnologyGPRS] ||
++                    [radioTech isEqualToString:CTRadioAccessTechnologyEdge] ||
++                    [radioTech isEqualToString:CTRadioAccessTechnologyCDMA1x]) {
+                     _cellularGeneration = RNCCellularGeneration2g;
+-                } else if ([netinfo.currentRadioAccessTechnology isEqualToString:CTRadioAccessTechnologyWCDMA] ||
+-                           [netinfo.currentRadioAccessTechnology isEqualToString:CTRadioAccessTechnologyHSDPA] ||
+-                           [netinfo.currentRadioAccessTechnology isEqualToString:CTRadioAccessTechnologyHSUPA] ||
+-                           [netinfo.currentRadioAccessTechnology isEqualToString:CTRadioAccessTechnologyCDMAEVDORev0] ||
+-                           [netinfo.currentRadioAccessTechnology isEqualToString:CTRadioAccessTechnologyCDMAEVDORevA] ||
+-                           [netinfo.currentRadioAccessTechnology isEqualToString:CTRadioAccessTechnologyCDMAEVDORevB] ||
+-                           [netinfo.currentRadioAccessTechnology isEqualToString:CTRadioAccessTechnologyeHRPD]) {
++                } else if ([radioTech isEqualToString:CTRadioAccessTechnologyWCDMA] ||
++                           [radioTech isEqualToString:CTRadioAccessTechnologyHSDPA] ||
++                           [radioTech isEqualToString:CTRadioAccessTechnologyHSUPA] ||
++                           [radioTech isEqualToString:CTRadioAccessTechnologyCDMAEVDORev0] ||
++                           [radioTech isEqualToString:CTRadioAccessTechnologyCDMAEVDORevA] ||
++                           [radioTech isEqualToString:CTRadioAccessTechnologyCDMAEVDORevB] ||
++                           [radioTech isEqualToString:CTRadioAccessTechnologyeHRPD]) {
+                     _cellularGeneration = RNCCellularGeneration3g;
+-                } else if ([netinfo.currentRadioAccessTechnology isEqualToString:CTRadioAccessTechnologyLTE]) {
++                } else if ([radioTech isEqualToString:CTRadioAccessTechnologyLTE]) {
+                     _cellularGeneration = RNCCellularGeneration4g;
+                 } else if (@available(iOS 14.1, *)) {
+-                    if ([netinfo.currentRadioAccessTechnology isEqualToString:CTRadioAccessTechnologyNRNSA] ||
+-                        [netinfo.currentRadioAccessTechnology isEqualToString:CTRadioAccessTechnologyNR]) {
++                    if ([radioTech isEqualToString:CTRadioAccessTechnologyNRNSA] ||
++                        [radioTech isEqualToString:CTRadioAccessTechnologyNR]) {
+                         _cellularGeneration = RNCCellularGeneration5g;
+                     }
+                 }
+diff --git a/node_modules/@react-native-community/netinfo/ios/RNCNetInfo.mm b/node_modules/@react-native-community/netinfo/ios/RNCNetInfo.mm
+index baa2de0..e708104 100644
+--- a/node_modules/@react-native-community/netinfo/ios/RNCNetInfo.mm
++++ b/node_modules/@react-native-community/netinfo/ios/RNCNetInfo.mm
+@@ -190,7 +190,7 @@ RCT_EXPORT_METHOD(configure:(NSDictionary *)config)
+   return nil;
+ #else
+   CTTelephonyNetworkInfo *netinfo = [[CTTelephonyNetworkInfo alloc] init];
+-  CTCarrier *carrier = [netinfo subscriberCellularProvider];
++  CTCarrier *carrier = [[netinfo serviceSubscriberCellularProviders] allValues].firstObject;
+   return carrier.carrierName;
+ #endif
+ }

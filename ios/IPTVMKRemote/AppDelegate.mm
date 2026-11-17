@@ -29,3 +29,34 @@
 }
 
 @end
+
+// iOS 27 terminates apps built with its SDK that don't adopt the UIScene
+// lifecycle. RCTAppDelegate (RN 0.73) still builds its window in
+// didFinishLaunching without a scene, so when the scene connects we move
+// React Native's root view controller into a window attached to that scene.
+@interface SceneDelegate : UIResponder <UIWindowSceneDelegate>
+@property (nonatomic, strong) UIWindow *window;
+@end
+
+@implementation SceneDelegate
+
+- (void)scene:(UIScene *)scene
+    willConnectToSession:(UISceneSession *)session
+                 options:(UISceneConnectionOptions *)connectionOptions
+{
+  if (![scene isKindOfClass:[UIWindowScene class]]) {
+    return;
+  }
+  AppDelegate *appDelegate = (AppDelegate *)UIApplication.sharedApplication.delegate;
+  UIViewController *rootViewController = appDelegate.window.rootViewController;
+  appDelegate.window.rootViewController = nil;
+  appDelegate.window.hidden = YES;
+
+  UIWindow *window = [[UIWindow alloc] initWithWindowScene:(UIWindowScene *)scene];
+  window.rootViewController = rootViewController;
+  self.window = window;
+  appDelegate.window = window;
+  [window makeKeyAndVisible];
+}
+
+@end

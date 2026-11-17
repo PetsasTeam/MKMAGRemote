@@ -1,5 +1,5 @@
 /**
- * IPTV MK Remote - Entry Point
+ * MAG Remote - Entry Point
  * @format
  */
 

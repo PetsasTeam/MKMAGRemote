@@ -1,5 +1,5 @@
 /**
- * Type definitions for IPTV MK Remote
+ * Type definitions for MAG Remote
  */
 
 export interface MAGDevice {

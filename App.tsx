@@ -1,5 +1,5 @@
 /**
- * IPTV MK Remote App
+ * MAG Remote App
  * Modern remote control for Infomir MAG devices
  */
 
@@ -70,7 +70,7 @@ function App(): React.JSX.Element {
               <Stack.Screen
                 name="Home"
                 component={HomeScreen}
-                options={{ title: 'IPTV MK Remote' }}
+                options={{ title: 'MAG Remote' }}
               />
               <Stack.Screen
                 name="Remote"

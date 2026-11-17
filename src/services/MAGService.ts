@@ -29,7 +29,7 @@ import {
 export type ConnectResult = 'ok' | 'unreachable' | 'rejected';
 
 const DEVICE_ID_KEY = 'mag_remote_device_id';
-const DEVICE_DESCRIPTION = 'IPTV MK Remote';
+const DEVICE_DESCRIPTION = 'MAG Remote';
 const REPLY_TIMEOUT_MS = 4000;
 const KEEP_ALIVE_MS = 15000;
 const TEXT_CHAR_DELAY_MS = 40;
