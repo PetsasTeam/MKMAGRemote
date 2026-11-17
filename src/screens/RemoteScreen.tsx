@@ -1,34 +1,22 @@
 /**
  * Remote Screen
- * Main remote control interface
+ * One-handed remote: circular D-pad up top, system keys, volume and channel
+ * rockers, playback and colour keys. Numbers and text entry open on demand.
  */
-
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  Vibration,
-  Alert,
-  ScrollView,
-} from 'react-native';
-import {
-  useTheme,
-  IconButton,
-  Text,
-  Portal,
-  Snackbar,
-  Surface,
-  Dialog,
-  Button,
-  TextInput,
-} from 'react-native-paper';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Button, Dialog, Icon, Modal, Portal, Snackbar, TextInput } from 'react-native-paper';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../App';
 import { useDevice } from '../context/DeviceContext';
 import { MAGCommand } from '../types';
 import MAGService from '../services/MAGService';
+import RemoteKey, { tapHaptic } from '../components/remote/RemoteKey';
+import DPad from '../components/remote/DPad';
+import Rocker from '../components/remote/Rocker';
+import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
+import { colors, radius, spacing } from '../theme/tokens';
 
 type RemoteScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Remote'>;
 type RemoteScreenRouteProp = RouteProp<RootStackParamList, 'Remote'>;
@@ -38,499 +26,292 @@ interface Props {
   route: RemoteScreenRouteProp;
 }
 
-interface RemoteButtonProps {
-  icon?: string;
-  label?: string;
-  command: MAGCommand;
-  onPress: (command: MAGCommand) => void;
-  size?: 'small' | 'medium' | 'large';
-  color?: string;
-}
+const NUMBERS = [
+  MAGCommand.NUM_1,
+  MAGCommand.NUM_2,
+  MAGCommand.NUM_3,
+  MAGCommand.NUM_4,
+  MAGCommand.NUM_5,
+  MAGCommand.NUM_6,
+  MAGCommand.NUM_7,
+  MAGCommand.NUM_8,
+  MAGCommand.NUM_9,
+];
 
-const RemoteButton: React.FC<RemoteButtonProps> = ({
-  icon,
-  label,
-  command,
-  onPress,
-  size = 'medium',
-  color,
-}) => {
-  const theme = useTheme();
-
-  const sizeMap = {
-    small: { width: 50, height: 50, fontSize: 14, iconSize: 20 },
-    medium: { width: 70, height: 70, fontSize: 16, iconSize: 24 },
-    large: { width: 90, height: 90, fontSize: 18, iconSize: 28 },
-  };
-
-  const dimensions = sizeMap[size];
-  const backgroundColor = color || theme.colors.surface;
-  // Buttons without a known MAG rc code are shown dimmed.
-  const supported = MAGService.isCommandSupported(command);
-
-  return (
-    <TouchableOpacity
-      style={[
-        styles.button,
-        { width: dimensions.width, height: dimensions.height, backgroundColor },
-        !supported && styles.unsupported,
-      ]}
-      onPress={() => onPress(command)}
-      activeOpacity={0.7}>
-      {icon ? (
-        <IconButton icon={icon} size={dimensions.iconSize} iconColor={theme.colors.onSurface} />
-      ) : (
-        <Text style={[styles.buttonText, { fontSize: dimensions.fontSize }]}>{label}</Text>
-      )}
-    </TouchableOpacity>
-  );
-};
+const supported = (command: MAGCommand) => MAGService.isCommandSupported(command);
 
 const RemoteScreen: React.FC<Props> = ({ navigation, route }) => {
-  const theme = useTheme();
   const { settings } = useDevice();
-  const [snackbarVisible, setSnackbarVisible] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState('');
-  const [isConnected, setIsConnected] = useState(true);
-  const [showTextDialog, setShowTextDialog] = useState(false);
+  const haptics = settings.vibrationEnabled !== false;
+  const [message, setMessage] = useState('');
+  const [showNumbers, setShowNumbers] = useState(false);
+  const [showText, setShowText] = useState(false);
   const [text, setText] = useState('');
+  const keyboardHeight = useKeyboardHeight();
+
+  const send = useCallback(async (command: MAGCommand) => {
+    if (!supported(command)) {
+      setMessage("This box doesn't support that key over Wi-Fi");
+      return;
+    }
+    if (!(await MAGService.sendCommand(command))) {
+      setMessage("Couldn't reach the box. Check it's on and on the same Wi-Fi.");
+    }
+  }, []);
 
   useEffect(() => {
     navigation.setOptions({
+      headerTitle: () => (
+        <View style={styles.headerTitle}>
+          <View style={styles.statusDot} />
+          <Text style={styles.headerText} numberOfLines={1}>
+            {route.params.deviceName}
+          </Text>
+        </View>
+      ),
       headerRight: () => (
-        <IconButton icon="keyboard" size={24} onPress={() => setShowTextDialog(true)} />
+        <View style={styles.headerActions}>
+          <Pressable
+            onPress={() => setShowText(true)}
+            style={styles.headerButton}
+            accessibilityLabel="Type text on TV"
+            hitSlop={6}>
+            <Icon source="keyboard-outline" size={20} color={colors.textSecondary} />
+          </Pressable>
+          <Pressable
+            onPress={() => {
+              tapHaptic(haptics);
+              send(MAGCommand.POWER);
+            }}
+            style={[styles.headerButton, !supported(MAGCommand.POWER) && styles.dimmed]}
+            accessibilityLabel="Power"
+            hitSlop={6}>
+            <Icon source="power" size={20} color={colors.danger} />
+          </Pressable>
+        </View>
       ),
     });
-  }, [navigation]);
+  }, [navigation, route.params.deviceName, haptics, send]);
 
   useEffect(() => {
-    // Check connection status
-    const connected = MAGService.isConnected();
-    setIsConnected(connected);
-
-    if (!connected) {
-      Alert.alert(
-        'Connection Lost',
-        'Lost connection to the MAG device. Please reconnect.',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
-      );
+    if (!MAGService.isConnected()) {
+      Alert.alert('Not connected', 'Connect to your MAG box again.', [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
     }
   }, [navigation]);
 
-  const handleButtonPress = async (command: MAGCommand) => {
-    if (!isConnected) {
-      showMessage('Not connected to device');
-      return;
-    }
-
-    if (!MAGService.isCommandSupported(command)) {
-      showMessage('This button is not available over the Wi-Fi remote');
-      return;
-    }
-
-    // Haptic feedback
-    if (settings.vibrationEnabled) {
-      Vibration.vibrate(50);
-    }
-
-    // Send command
-    const success = await MAGService.sendCommand(command);
-
-    if (!success) {
-      showMessage('Failed to send command');
-    }
-  };
-
-  const showMessage = (message: string) => {
-    setSnackbarMessage(message);
-    setSnackbarVisible(true);
-  };
-
-  const handleSendText = async () => {
+  const sendText = async () => {
     const value = text;
-    setShowTextDialog(false);
+    setShowText(false);
     setText('');
-    const success = await MAGService.sendText(value);
-    showMessage(success ? 'Text sent' : 'Failed to send text');
+    if (value) {
+      setMessage((await MAGService.sendText(value)) ? 'Sent to TV' : "Couldn't send the text");
+    }
   };
+
+  const roundKey = (command: MAGCommand, icon: string, label: string) => (
+    <View style={styles.roundKeyWrap}>
+      <RemoteKey
+        onPress={() => send(command)}
+        dimmed={!supported(command)}
+        haptics={haptics}
+        accessibilityLabel={label}
+        style={styles.roundKey}>
+        <Icon source={icon} size={22} color={colors.text} />
+      </RemoteKey>
+      <Text style={styles.keyLabel}>{label}</Text>
+    </View>
+  );
+
+  const playbackKey = (command: MAGCommand, icon: string, label: string) => (
+    <RemoteKey
+      onPress={() => send(command)}
+      dimmed={!supported(command)}
+      haptics={haptics}
+      accessibilityLabel={label}
+      style={styles.playKey}>
+      <Icon source={icon} size={24} color={colors.text} />
+    </RemoteKey>
+  );
+
+  const colourKey = (command: MAGCommand, color: string, label: string) => (
+    <View style={styles.colourKeyWrap}>
+      <RemoteKey
+        onPress={() => send(command)}
+        dimmed={!supported(command)}
+        haptics={haptics}
+        accessibilityLabel={label}
+        pressedColor={color}
+        style={styles.colourKeyHit}>
+        <View style={[styles.colourBar, { backgroundColor: color }]} />
+      </RemoteKey>
+    </View>
+  );
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Power and Menu Section */}
-        <View style={styles.section}>
-          <View style={styles.row}>
-            <RemoteButton
-              icon="power"
-              command={MAGCommand.POWER}
-              onPress={handleButtonPress}
-              size="medium"
-              color="#FF6B6B"
-            />
-            <RemoteButton
-              icon="cog"
-              command={MAGCommand.SETTINGS}
-              onPress={handleButtonPress}
-              size="medium"
-            />
-            <RemoteButton
-              icon="menu"
-              command={MAGCommand.MENU}
-              onPress={handleButtonPress}
-              size="medium"
-            />
-          </View>
+    <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <DPad onKey={send} haptics={haptics} />
+
+        <View style={styles.systemRow}>
+          {roundKey(MAGCommand.BACK, 'arrow-u-left-top', 'Back')}
+          {roundKey(MAGCommand.MENU, 'home-outline', 'Menu')}
+          {roundKey(MAGCommand.EXIT, 'close', 'Exit')}
+          {roundKey(MAGCommand.INFO, 'information-outline', 'Info')}
         </View>
 
-        {/* Navigation D-Pad */}
-        <Surface style={styles.dpadSection}>
-          <Text style={styles.sectionTitle}>Navigation</Text>
-          <View style={styles.dpad}>
-            <View style={styles.dpadRow}>
-              <View style={styles.dpadSpacer} />
-              <RemoteButton
-                icon="chevron-up"
-                command={MAGCommand.UP}
-                onPress={handleButtonPress}
-                size="large"
-              />
-              <View style={styles.dpadSpacer} />
-            </View>
-            <View style={styles.dpadRow}>
-              <RemoteButton
-                icon="chevron-left"
-                command={MAGCommand.LEFT}
-                onPress={handleButtonPress}
-                size="large"
-              />
-              <RemoteButton
-                icon="circle"
-                command={MAGCommand.OK}
-                onPress={handleButtonPress}
-                size="large"
-                color={theme.colors.primary}
-              />
-              <RemoteButton
-                icon="chevron-right"
-                command={MAGCommand.RIGHT}
-                onPress={handleButtonPress}
-                size="large"
-              />
-            </View>
-            <View style={styles.dpadRow}>
-              <View style={styles.dpadSpacer} />
-              <RemoteButton
-                icon="chevron-down"
-                command={MAGCommand.DOWN}
-                onPress={handleButtonPress}
-                size="large"
-              />
-              <View style={styles.dpadSpacer} />
-            </View>
+        <View style={styles.rockerRow}>
+          <Rocker
+            label="VOL"
+            upIcon="plus"
+            downIcon="minus"
+            onUp={() => send(MAGCommand.VOL_UP)}
+            onDown={() => send(MAGCommand.VOL_DOWN)}
+            upDimmed={!supported(MAGCommand.VOL_UP)}
+            downDimmed={!supported(MAGCommand.VOL_DOWN)}
+            haptics={haptics}
+          />
+          <View style={styles.middleColumn}>
+            <RemoteKey
+              onPress={() => send(MAGCommand.MUTE)}
+              dimmed={!supported(MAGCommand.MUTE)}
+              haptics={haptics}
+              accessibilityLabel="Mute"
+              style={styles.roundKey}>
+              <Icon source="volume-off" size={22} color={colors.text} />
+            </RemoteKey>
+            <RemoteKey
+              onPress={() => setShowNumbers(true)}
+              haptics={haptics}
+              accessibilityLabel="Number pad"
+              style={styles.numbersKey}>
+              <Text style={styles.numbersText}>123</Text>
+            </RemoteKey>
           </View>
-
-          <View style={[styles.row, styles.navButtons]}>
-            <RemoteButton
-              icon="arrow-left"
-              command={MAGCommand.BACK}
-              onPress={handleButtonPress}
-              size="medium"
-            />
-            <RemoteButton
-              icon="exit-to-app"
-              command={MAGCommand.EXIT}
-              onPress={handleButtonPress}
-              size="medium"
-            />
-            <RemoteButton
-              icon="information"
-              command={MAGCommand.INFO}
-              onPress={handleButtonPress}
-              size="medium"
-            />
-          </View>
-        </Surface>
-
-        {/* Playback Controls */}
-        <Surface style={styles.section}>
-          <Text style={styles.sectionTitle}>Playback</Text>
-          <View style={styles.row}>
-            <RemoteButton
-              icon="skip-previous"
-              command={MAGCommand.PREV}
-              onPress={handleButtonPress}
-              size="medium"
-            />
-            <RemoteButton
-              icon="rewind"
-              command={MAGCommand.REWIND}
-              onPress={handleButtonPress}
-              size="medium"
-            />
-            <RemoteButton
-              icon="play-pause"
-              command={MAGCommand.PLAY}
-              onPress={handleButtonPress}
-              size="medium"
-              color={theme.colors.primary}
-            />
-            <RemoteButton
-              icon="fast-forward"
-              command={MAGCommand.FORWARD}
-              onPress={handleButtonPress}
-              size="medium"
-            />
-            <RemoteButton
-              icon="skip-next"
-              command={MAGCommand.NEXT}
-              onPress={handleButtonPress}
-              size="medium"
-            />
-          </View>
-          <View style={styles.row}>
-            <RemoteButton
-              icon="stop"
-              command={MAGCommand.STOP}
-              onPress={handleButtonPress}
-              size="medium"
-            />
-            <RemoteButton
-              icon="record"
-              command={MAGCommand.REC}
-              onPress={handleButtonPress}
-              size="medium"
-              color="#FF6B6B"
-            />
-          </View>
-        </Surface>
-
-        {/* Volume and Channel */}
-        <View style={styles.section}>
-          <View style={styles.row}>
-            <View style={styles.volumeGroup}>
-              <Text style={styles.groupLabel}>Volume</Text>
-              <RemoteButton
-                icon="plus"
-                command={MAGCommand.VOL_UP}
-                onPress={handleButtonPress}
-                size="medium"
-              />
-              <RemoteButton
-                icon="volume-mute"
-                command={MAGCommand.MUTE}
-                onPress={handleButtonPress}
-                size="medium"
-              />
-              <RemoteButton
-                icon="minus"
-                command={MAGCommand.VOL_DOWN}
-                onPress={handleButtonPress}
-                size="medium"
-              />
-            </View>
-
-            <View style={styles.channelGroup}>
-              <Text style={styles.groupLabel}>Channel</Text>
-              <RemoteButton
-                icon="chevron-up"
-                command={MAGCommand.CH_UP}
-                onPress={handleButtonPress}
-                size="medium"
-              />
-              <RemoteButton
-                icon="star"
-                command={MAGCommand.FAV}
-                onPress={handleButtonPress}
-                size="medium"
-              />
-              <RemoteButton
-                icon="chevron-down"
-                command={MAGCommand.CH_DOWN}
-                onPress={handleButtonPress}
-                size="medium"
-              />
-            </View>
-          </View>
+          <Rocker
+            label="CH"
+            upIcon="chevron-up"
+            downIcon="chevron-down"
+            onUp={() => send(MAGCommand.CH_UP)}
+            onDown={() => send(MAGCommand.CH_DOWN)}
+            upDimmed={!supported(MAGCommand.CH_UP)}
+            downDimmed={!supported(MAGCommand.CH_DOWN)}
+            haptics={haptics}
+          />
         </View>
 
-        {/* Number Pad */}
-        <Surface style={styles.section}>
-          <Text style={styles.sectionTitle}>Numbers</Text>
-          <View style={styles.numberPad}>
-            <View style={styles.row}>
-              <RemoteButton
-                label="1"
-                command={MAGCommand.NUM_1}
-                onPress={handleButtonPress}
-                size="medium"
-              />
-              <RemoteButton
-                label="2"
-                command={MAGCommand.NUM_2}
-                onPress={handleButtonPress}
-                size="medium"
-              />
-              <RemoteButton
-                label="3"
-                command={MAGCommand.NUM_3}
-                onPress={handleButtonPress}
-                size="medium"
-              />
-            </View>
-            <View style={styles.row}>
-              <RemoteButton
-                label="4"
-                command={MAGCommand.NUM_4}
-                onPress={handleButtonPress}
-                size="medium"
-              />
-              <RemoteButton
-                label="5"
-                command={MAGCommand.NUM_5}
-                onPress={handleButtonPress}
-                size="medium"
-              />
-              <RemoteButton
-                label="6"
-                command={MAGCommand.NUM_6}
-                onPress={handleButtonPress}
-                size="medium"
-              />
-            </View>
-            <View style={styles.row}>
-              <RemoteButton
-                label="7"
-                command={MAGCommand.NUM_7}
-                onPress={handleButtonPress}
-                size="medium"
-              />
-              <RemoteButton
-                label="8"
-                command={MAGCommand.NUM_8}
-                onPress={handleButtonPress}
-                size="medium"
-              />
-              <RemoteButton
-                label="9"
-                command={MAGCommand.NUM_9}
-                onPress={handleButtonPress}
-                size="medium"
-              />
-            </View>
-            <View style={styles.row}>
-              <View style={{ width: 70 }} />
-              <RemoteButton
-                label="0"
-                command={MAGCommand.NUM_0}
-                onPress={handleButtonPress}
-                size="medium"
-              />
-              <View style={{ width: 70 }} />
-            </View>
-          </View>
-        </Surface>
-
-        {/* Color Buttons */}
-        <View style={styles.section}>
-          <View style={styles.row}>
-            <RemoteButton
-              icon="square"
-              command={MAGCommand.RED}
-              onPress={handleButtonPress}
-              size="small"
-              color="#FF0000"
-            />
-            <RemoteButton
-              icon="square"
-              command={MAGCommand.GREEN}
-              onPress={handleButtonPress}
-              size="small"
-              color="#00FF00"
-            />
-            <RemoteButton
-              icon="square"
-              command={MAGCommand.YELLOW}
-              onPress={handleButtonPress}
-              size="small"
-              color="#FFFF00"
-            />
-            <RemoteButton
-              icon="square"
-              command={MAGCommand.BLUE}
-              onPress={handleButtonPress}
-              size="small"
-              color="#0000FF"
-            />
-          </View>
+        <View style={styles.playbackBar}>
+          {playbackKey(MAGCommand.PREV, 'skip-previous', 'Previous')}
+          {playbackKey(MAGCommand.REWIND, 'rewind', 'Rewind')}
+          <RemoteKey
+            onPress={() => send(MAGCommand.PLAY)}
+            dimmed={!supported(MAGCommand.PLAY)}
+            haptics={haptics}
+            accessibilityLabel="Play or pause"
+            pressedColor={colors.textSecondary}
+            style={styles.playMain}>
+            <Icon source="play-pause" size={26} color={colors.background} />
+          </RemoteKey>
+          {playbackKey(MAGCommand.FORWARD, 'fast-forward', 'Fast forward')}
+          {playbackKey(MAGCommand.NEXT, 'skip-next', 'Next')}
         </View>
 
-        {/* Additional Functions */}
-        <View style={styles.section}>
-          <View style={styles.row}>
-            <RemoteButton
-              icon="web"
-              command={MAGCommand.PORTAL}
-              onPress={handleButtonPress}
-              size="small"
-            />
-            <RemoteButton
-              icon="usb"
-              command={MAGCommand.USB}
-              onPress={handleButtonPress}
-              size="small"
-            />
-            <RemoteButton
-              icon="radio"
-              command={MAGCommand.TV_RADIO}
-              onPress={handleButtonPress}
-              size="small"
-            />
-            <RemoteButton
-              icon="waveform"
-              command={MAGCommand.AUDIO}
-              onPress={handleButtonPress}
-              size="small"
-            />
-            <RemoteButton
-              icon="closed-caption"
-              command={MAGCommand.SUBTITLE}
-              onPress={handleButtonPress}
-              size="small"
-            />
-          </View>
+        <View style={styles.colourRow}>
+          {colourKey(MAGCommand.RED, colors.keyRed, 'Red')}
+          {colourKey(MAGCommand.GREEN, colors.keyGreen, 'Green')}
+          {colourKey(MAGCommand.YELLOW, colors.keyYellow, 'Yellow')}
+          {colourKey(MAGCommand.BLUE, colors.keyBlue, 'Blue')}
         </View>
       </ScrollView>
 
       <Portal>
-        <Dialog visible={showTextDialog} onDismiss={() => setShowTextDialog(false)}>
-          <Dialog.Title>Type on TV</Dialog.Title>
+        <Modal
+          visible={showNumbers}
+          onDismiss={() => setShowNumbers(false)}
+          contentContainerStyle={styles.sheet}>
+          <View style={styles.sheetHandle} />
+          <View style={styles.numGrid}>
+            {NUMBERS.map((command, i) => (
+              <RemoteKey
+                key={command}
+                onPress={() => send(command)}
+                haptics={haptics}
+                accessibilityLabel={String(i + 1)}
+                style={styles.numKey}>
+                <Text style={styles.numText}>{i + 1}</Text>
+              </RemoteKey>
+            ))}
+            <RemoteKey
+              onPress={() => send(MAGCommand.BACK)}
+              haptics={haptics}
+              accessibilityLabel="Back"
+              style={[styles.numKey, styles.numKeyQuiet]}>
+              <Icon source="backspace-outline" size={22} color={colors.textSecondary} />
+            </RemoteKey>
+            <RemoteKey
+              onPress={() => send(MAGCommand.NUM_0)}
+              haptics={haptics}
+              accessibilityLabel="0"
+              style={styles.numKey}>
+              <Text style={styles.numText}>0</Text>
+            </RemoteKey>
+            <RemoteKey
+              onPress={() => send(MAGCommand.OK)}
+              haptics={haptics}
+              accessibilityLabel="OK"
+              pressedColor={colors.accentPressed}
+              style={[styles.numKey, styles.numKeyAccent]}>
+              <Text style={[styles.numText, styles.numOkText]}>OK</Text>
+            </RemoteKey>
+          </View>
+          <Button
+            mode="text"
+            onPress={() => setShowNumbers(false)}
+            textColor={colors.textSecondary}
+            style={styles.sheetDone}>
+            Done
+          </Button>
+        </Modal>
+
+        <Dialog
+          visible={showText}
+          onDismiss={() => setShowText(false)}
+          style={[styles.dialog, { marginBottom: keyboardHeight }]}>
+          <Dialog.Title style={styles.dialogTitle}>Type on TV</Dialog.Title>
           <Dialog.Content>
             <TextInput
-              label="Text"
+              mode="outlined"
               value={text}
               onChangeText={setText}
+              placeholder="Search, URL or login"
               autoFocus
               autoCapitalize="none"
               autoCorrect={false}
-              mode="outlined"
-              onSubmitEditing={handleSendText}
+              returnKeyType="send"
+              onSubmitEditing={sendText}
+              outlineColor={colors.border}
+              activeOutlineColor={colors.accent}
+              textColor={colors.text}
+              style={styles.dialogInput}
             />
-            <Text style={styles.dialogHint}>
-              Select a text field on the TV first (search, URL, login), then send.
-            </Text>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setShowTextDialog(false)}>Cancel</Button>
-            <Button onPress={handleSendText} disabled={!text}>
+            <Button onPress={() => setShowText(false)} textColor={colors.textSecondary}>
+              Cancel
+            </Button>
+            <Button onPress={sendText} textColor={colors.accentText}>
               Send
             </Button>
           </Dialog.Actions>
         </Dialog>
+
         <Snackbar
-          visible={snackbarVisible}
-          onDismiss={() => setSnackbarVisible(false)}
-          duration={2000}>
-          {snackbarMessage}
+          visible={message !== ''}
+          onDismiss={() => setMessage('')}
+          duration={2500}
+          style={styles.snackbar}>
+          {message}
         </Snackbar>
       </Portal>
     </View>
@@ -540,87 +321,200 @@ const RemoteScreen: React.FC<Props> = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background,
   },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 40,
+  content: {
+    alignItems: 'center',
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.xxl,
+    paddingHorizontal: spacing.xl,
+    gap: spacing.xl,
   },
-  section: {
-    marginBottom: 20,
-    padding: 10,
-    borderRadius: 12,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    textAlign: 'center',
-    opacity: 0.8,
-  },
-  row: {
+  headerTitle: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    gap: 10,
-    marginVertical: 5,
+    maxWidth: 220,
   },
-  button: {
-    borderRadius: 12,
-    justifyContent: 'center',
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.success,
+    marginRight: spacing.sm,
+  },
+  headerText: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginRight: spacing.lg,
+  },
+  headerButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.control,
     alignItems: 'center',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    justifyContent: 'center',
   },
-  buttonText: {
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  unsupported: {
+  dimmed: {
     opacity: 0.35,
   },
-  dialogHint: {
-    marginTop: 8,
-    opacity: 0.7,
-  },
-  dpadSection: {
-    marginBottom: 20,
-    padding: 15,
-    borderRadius: 12,
-  },
-  dpad: {
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  dpadRow: {
+  systemRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignSelf: 'stretch',
+    paddingHorizontal: spacing.sm,
+  },
+  roundKeyWrap: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  roundKey: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: colors.control,
+    alignItems: 'center',
     justifyContent: 'center',
+  },
+  keyLabel: {
+    fontSize: 11,
+    color: colors.textMuted,
+  },
+  rockerRow: {
+    flexDirection: 'row',
+    alignSelf: 'stretch',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: spacing.lg,
   },
-  dpadSpacer: {
-    width: 90,
-  },
-  navButtons: {
-    marginTop: 10,
-  },
-  numberPad: {
+  middleColumn: {
     alignItems: 'center',
+    gap: spacing.md,
   },
-  volumeGroup: {
+  numbersKey: {
+    width: 76,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.control,
     alignItems: 'center',
-    gap: 10,
+    justifyContent: 'center',
   },
-  channelGroup: {
-    alignItems: 'center',
-    gap: 10,
-  },
-  groupLabel: {
+  numbersText: {
+    color: colors.text,
     fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 5,
-    opacity: 0.8,
+    fontWeight: '600',
+    letterSpacing: 1,
+  },
+  playbackBar: {
+    flexDirection: 'row',
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  playKey: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  playMain: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: colors.text,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  colourRow: {
+    flexDirection: 'row',
+    alignSelf: 'stretch',
+    gap: spacing.sm,
+  },
+  colourKeyWrap: {
+    flex: 1,
+  },
+  colourKeyHit: {
+    height: 32,
+    borderRadius: radius.sm,
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  colourBar: {
+    height: 8,
+    borderRadius: 4,
+  },
+  sheet: {
+    marginTop: 'auto',
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xxl,
+  },
+  sheetHandle: {
+    alignSelf: 'center',
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.border,
+    marginBottom: spacing.lg,
+  },
+  numGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: spacing.md,
+  },
+  numKey: {
+    width: 96,
+    height: 60,
+    borderRadius: radius.lg,
+    backgroundColor: colors.control,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  numKeyQuiet: {
+    backgroundColor: 'transparent',
+  },
+  numKeyAccent: {
+    backgroundColor: colors.accent,
+  },
+  numText: {
+    color: colors.text,
+    fontSize: 24,
+    fontWeight: '500',
+  },
+  numOkText: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '600',
+  },
+  sheetDone: {
+    marginTop: spacing.md,
+  },
+  dialog: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+  },
+  dialogTitle: {
+    color: colors.text,
+  },
+  dialogInput: {
+    backgroundColor: colors.background,
+  },
+  snackbar: {
+    backgroundColor: colors.control,
   },
 });
 

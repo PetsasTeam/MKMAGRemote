@@ -4,9 +4,11 @@
  * also the encryption key, so it is checked by connecting with it.
  */
 import React, { useEffect, useState } from 'react';
-import { Keyboard, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { Button, Dialog, HelperText, Paragraph, Portal, TextInput } from 'react-native-paper';
 import { MAGDevice } from '../types';
+import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
+import { colors, radius } from '../theme/tokens';
 
 interface Props {
   /** Device to ask about; the dialog is shown while this is non-null. */
@@ -37,8 +39,8 @@ const PasswordDialog: React.FC<Props> = ({ device, error, onSubmit, onCancel }) 
       <Dialog
         visible={device !== null}
         onDismiss={onCancel}
-        style={{ marginBottom: keyboardHeight }}>
-        <Dialog.Title>Box password</Dialog.Title>
+        style={[styles.dialog, { marginBottom: keyboardHeight }]}>
+        <Dialog.Title style={styles.title}>Box password</Dialog.Title>
         <Dialog.Content>
           <Paragraph style={styles.text}>
             Enter the password set on {device?.name ?? 'the box'} under Settings → System settings →
@@ -55,6 +57,10 @@ const PasswordDialog: React.FC<Props> = ({ device, error, onSubmit, onCancel }) 
             autoFocus
             autoCorrect={false}
             mode="outlined"
+            outlineColor={colors.border}
+            activeOutlineColor={colors.accent}
+            textColor={colors.text}
+            style={styles.input}
             onSubmitEditing={submit}
           />
           <HelperText type="error" visible={!!error}>
@@ -62,30 +68,32 @@ const PasswordDialog: React.FC<Props> = ({ device, error, onSubmit, onCancel }) 
           </HelperText>
         </Dialog.Content>
         <Dialog.Actions>
-          <Button onPress={onCancel}>Cancel</Button>
-          <Button onPress={submit}>Connect</Button>
+          <Button onPress={onCancel} textColor={colors.textSecondary}>
+            Cancel
+          </Button>
+          <Button onPress={submit} textColor={colors.accentText}>
+            Connect
+          </Button>
         </Dialog.Actions>
       </Dialog>
     </Portal>
   );
 };
 
-function useKeyboardHeight(): number {
-  const [height, setHeight] = useState(0);
-  useEffect(() => {
-    const show = Keyboard.addListener('keyboardWillShow', e => setHeight(e.endCoordinates.height));
-    const hide = Keyboard.addListener('keyboardWillHide', () => setHeight(0));
-    return () => {
-      show.remove();
-      hide.remove();
-    };
-  }, []);
-  return height;
-}
-
 const styles = StyleSheet.create({
+  dialog: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+  },
+  title: {
+    color: colors.text,
+  },
   text: {
     marginBottom: 12,
+    color: colors.textSecondary,
+  },
+  input: {
+    backgroundColor: colors.background,
   },
 });
 

@@ -1,24 +1,19 @@
 /**
  * Device Discovery Screen
  * Scans the local network for MAG boxes with Remote control enabled
- * (MAGic Remote or AuraHD protocol).
+ * (MAGic Remote or AuraHD protocol). Tap a box to connect.
  */
-
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, StyleSheet, FlatList, Alert } from 'react-native';
 import {
-  Button,
-  Card,
-  Title,
-  Paragraph,
   ActivityIndicator,
-  useTheme,
-  ProgressBar,
+  Alert,
+  FlatList,
+  Pressable,
+  StyleSheet,
   Text,
-  Portal,
-  Dialog,
-  TextInput,
-} from 'react-native-paper';
+  View,
+} from 'react-native';
+import { Button, Dialog, Icon, Portal, TextInput } from 'react-native-paper';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../App';
 import DeviceDiscoveryService, {
@@ -28,6 +23,8 @@ import DeviceDiscoveryService, {
   mergeDiscovered,
 } from '../services/DeviceDiscoveryService';
 import { useMagConnect } from '../hooks/useMagConnect';
+import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
+import { colors, radius, spacing, type } from '../theme/tokens';
 
 type DeviceDiscoveryScreenNavigationProp = StackNavigationProp<
   RootStackParamList,
@@ -38,23 +35,21 @@ interface Props {
   navigation: DeviceDiscoveryScreenNavigationProp;
 }
 
-const NOTHING_FOUND_HELP =
-  'No MAG boxes answered. Please check:\n\n' +
-  '1. The box is switched on\n' +
-  '2. Your phone and the box are on the same Wi-Fi network\n' +
-  '3. On the box: Settings → System settings → Remote control → "Use remote control" is on\n' +
-  '4. On iPhone: if you were asked about "Local Network" access, tap Allow ' +
-  '(or enable it in iOS Settings → Privacy & Security → Local Network) and scan again';
-
-const upsert = mergeDiscovered;
+const CHECKS = [
+  'The box is on',
+  'Your phone and the box are on the same Wi-Fi',
+  'On the box: Settings → System settings → Remote control → "Use remote control" is on',
+  'On iPhone: Settings → Privacy & Security → Local Network → MAG Remote is on',
+];
 
 const DeviceDiscoveryScreen: React.FC<Props> = ({ navigation }) => {
-  const theme = useTheme();
   const [scanning, setScanning] = useState(false);
+  const [scanned, setScanned] = useState(false);
   const [progress, setProgress] = useState(0);
   const [devices, setDevices] = useState<DiscoveredDevice[]>([]);
   const [showManualDialog, setShowManualDialog] = useState(false);
   const [manualIp, setManualIp] = useState('');
+  const keyboardHeight = useKeyboardHeight();
   const { connect, connectingId, pairingDialog } = useMagConnect(device =>
     navigation.replace('Remote', {
       deviceId: device.id,
@@ -65,27 +60,22 @@ const DeviceDiscoveryScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleScan = useCallback(async () => {
     setScanning(true);
+    setScanned(false);
     setDevices([]);
     setProgress(0);
-
     try {
-      const found = await DeviceDiscoveryService.scanNetwork(
-        device => setDevices(prev => upsert(prev, device)),
+      await DeviceDiscoveryService.scanNetwork(
+        device => setDevices(prev => mergeDiscovered(prev, device)),
         value => setProgress(value),
       );
-      if (found.length === 0) {
-        Alert.alert('No Devices Found', NOTHING_FOUND_HELP, [
-          { text: 'Add Manually', onPress: () => setShowManualDialog(true) },
-          { text: 'OK', style: 'cancel' },
-        ]);
-      }
     } catch (error) {
       Alert.alert(
-        error instanceof NoWifiError ? 'Not on Wi-Fi' : 'Scan failed',
-        error instanceof Error ? error.message : 'An error occurred during scanning.',
+        error instanceof NoWifiError ? 'Not on Wi-Fi' : "Couldn't scan",
+        error instanceof Error ? error.message : 'Something went wrong while scanning.',
       );
     } finally {
       setScanning(false);
+      setScanned(true);
       setProgress(0);
     }
   }, []);
@@ -98,134 +88,154 @@ const DeviceDiscoveryScreen: React.FC<Props> = ({ navigation }) => {
   const handleManualAdd = async () => {
     const ip = manualIp.trim();
     if (!isValidIPv4(ip)) {
-      Alert.alert('Invalid IP address', 'Enter the IP shown on the box, e.g. 192.168.1.50');
+      Alert.alert('Check the IP address', 'Enter it as shown on the box, like 192.168.1.50');
       return;
     }
-
     setShowManualDialog(false);
     setScanning(true);
     try {
       const device = await DeviceDiscoveryService.addManualDevice(ip);
       if (device) {
-        setDevices(prev => upsert(prev, device));
+        setDevices(prev => mergeDiscovered(prev, device));
       } else {
         Alert.alert(
-          'Device Not Found',
-          `No MAG box answered at ${ip}.\n\n` +
-            'Check the IP address on the box (Settings → System settings → Network), make sure ' +
-            'your phone is on the same network, and that "Use remote control" is on.',
+          `No box answered at ${ip}`,
+          'Check the IP address, that your phone is on the same Wi-Fi, and that "Use remote control" is on.',
         );
       }
     } finally {
       setScanning(false);
+      setScanned(true);
       setManualIp('');
     }
   };
 
-  const renderDeviceCard = ({ item }: { item: DiscoveredDevice }) => (
-    <Card style={styles.deviceCard}>
-      <Card.Content>
-        <Title>{item.name}</Title>
-        <Paragraph>IP: {item.ip}</Paragraph>
-        {item.protocol === 'aurahd' && (
-          <Paragraph style={styles.hintText}>
-            Connects with the box's Remote control password
-          </Paragraph>
-        )}
-      </Card.Content>
-      <Card.Actions>
-        <Button
-          mode="contained"
-          onPress={() => connect(item)}
-          loading={connectingId === item.id}
-          disabled={connectingId !== null}>
-          {connectingId === item.id ? 'Connecting...' : 'Connect'}
-        </Button>
-      </Card.Actions>
-    </Card>
+  const renderDevice = ({ item }: { item: DiscoveredDevice }) => (
+    <Pressable
+      onPress={() => connect(item)}
+      disabled={connectingId !== null}
+      accessibilityRole="button"
+      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
+      <View style={styles.tile}>
+        <Icon source="television" size={22} color={colors.accentText} />
+      </View>
+      <View style={styles.rowText}>
+        <Text style={styles.rowTitle} numberOfLines={1}>
+          {item.name}
+        </Text>
+        <Text style={styles.rowSubtitle} numberOfLines={1}>
+          {item.ip} ·{' '}
+          {item.protocol === 'aurahd' ? 'Uses the box password' : 'Pairs with a TV code'}
+        </Text>
+      </View>
+      {connectingId === item.id ? (
+        <ActivityIndicator color={colors.textSecondary} />
+      ) : (
+        <Text style={styles.connectText}>Connect</Text>
+      )}
+    </Pressable>
   );
 
-  return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={styles.header}>
-        <Title style={styles.headerTitle}>Find MAG Devices</Title>
-        <Paragraph style={styles.headerSubtitle}>
-          Looking for MAG boxes on your Wi-Fi network
-        </Paragraph>
+  const status = scanning ? (
+    <View style={styles.status}>
+      <View style={styles.statusLine}>
+        <Icon source="radar" size={18} color={colors.accentText} />
+        <Text style={styles.statusText}>
+          Searching your Wi-Fi…{devices.length > 0 ? ` ${devices.length} found` : ''}
+        </Text>
       </View>
+      <View style={styles.track}>
+        <View style={[styles.trackFill, { width: `${Math.max(4, Math.round(progress))}%` }]} />
+      </View>
+    </View>
+  ) : devices.length > 0 ? (
+    <Text style={styles.sectionLabel}>
+      {devices.length === 1 ? '1 BOX FOUND' : `${devices.length} BOXES FOUND`}
+    </Text>
+  ) : null;
 
-      {scanning && (
-        <View style={styles.scanningContainer}>
-          <ActivityIndicator size="large" />
-          <Text style={styles.scanningText}>
-            {progress > 0 ? `Scanning network... ${progress.toFixed(0)}%` : 'Searching...'}
-          </Text>
-          {progress > 0 && <ProgressBar progress={progress / 100} style={styles.progressBar} />}
-        </View>
-      )}
+  const nothingFound =
+    scanned && !scanning && devices.length === 0 ? (
+      <View style={styles.helpCard}>
+        <Text style={styles.helpTitle}>No boxes found</Text>
+        <Text style={styles.helpBody}>Check that:</Text>
+        {CHECKS.map(check => (
+          <View key={check} style={styles.helpItem}>
+            <Icon source="check-circle-outline" size={16} color={colors.textMuted} />
+            <Text style={styles.helpText}>{check}</Text>
+          </View>
+        ))}
+      </View>
+    ) : null;
 
-      {!scanning && devices.length === 0 && (
-        <View style={styles.emptyContainer}>
-          <Title>No Devices Found</Title>
-          <Paragraph style={styles.emptyText}>Scan again or add your device manually</Paragraph>
-        </View>
-      )}
+  return (
+    <View style={styles.container}>
+      <FlatList
+        data={devices}
+        renderItem={renderDevice}
+        keyExtractor={item => item.id}
+        contentContainerStyle={styles.list}
+        ItemSeparatorComponent={Separator}
+        ListHeaderComponent={
+          <>
+            <Text style={styles.intro}>Looking for MAG boxes with Remote control turned on.</Text>
+            {status}
+          </>
+        }
+        ListFooterComponent={nothingFound}
+      />
 
-      {devices.length > 0 && (
-        <>
-          <Text style={styles.resultText}>
-            Found {devices.length} device{devices.length === 1 ? '' : 's'}
-          </Text>
-          <FlatList
-            data={devices}
-            renderItem={renderDeviceCard}
-            keyExtractor={item => item.id}
-            contentContainerStyle={styles.listContainer}
-          />
-        </>
-      )}
-
-      <View style={styles.buttonContainer}>
+      <View style={styles.footer}>
         <Button
           mode="contained"
           onPress={handleScan}
           disabled={scanning}
-          style={styles.button}
-          icon="radar">
-          Scan Again
+          style={styles.primaryButton}
+          contentStyle={styles.buttonContent}
+          labelStyle={styles.buttonLabel}>
+          {scanning ? 'Searching…' : 'Scan again'}
         </Button>
         <Button
-          mode="outlined"
+          mode="text"
           onPress={() => setShowManualDialog(true)}
-          disabled={scanning}
-          style={styles.button}
-          icon="plus">
-          Add Manually
+          textColor={colors.textSecondary}>
+          Enter IP address
         </Button>
       </View>
 
       <Portal>
-        <Dialog visible={showManualDialog} onDismiss={() => setShowManualDialog(false)}>
-          <Dialog.Title>Add Device Manually</Dialog.Title>
+        <Dialog
+          visible={showManualDialog}
+          onDismiss={() => setShowManualDialog(false)}
+          style={[styles.dialog, { marginBottom: keyboardHeight }]}>
+          <Dialog.Title style={styles.dialogTitle}>Enter IP address</Dialog.Title>
           <Dialog.Content>
-            <Paragraph style={styles.dialogText}>
-              Enter the IP address of your MAG box. You can find it on the box under Settings →
-              System settings → Network / Info.
-            </Paragraph>
+            <Text style={styles.dialogBody}>
+              Find it on the box under Settings → System settings → Network.
+            </Text>
             <TextInput
-              label="IP Address"
+              mode="outlined"
               value={manualIp}
               onChangeText={setManualIp}
-              placeholder="192.168.1.100"
-              keyboardType="decimal-pad"
+              placeholder="192.168.1.50"
+              keyboardType="numbers-and-punctuation"
+              returnKeyType="go"
+              autoFocus
               autoCorrect={false}
-              mode="outlined"
-              style={styles.input}
+              onSubmitEditing={handleManualAdd}
+              outlineColor={colors.border}
+              activeOutlineColor={colors.accent}
+              textColor={colors.text}
+              style={styles.dialogInput}
             />
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={() => setShowManualDialog(false)}>Cancel</Button>
-            <Button onPress={handleManualAdd}>Add Device</Button>
+            <Button onPress={() => setShowManualDialog(false)} textColor={colors.textSecondary}>
+              Cancel
+            </Button>
+            <Button onPress={handleManualAdd} textColor={colors.accentText}>
+              Add
+            </Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
@@ -235,73 +245,147 @@ const DeviceDiscoveryScreen: React.FC<Props> = ({ navigation }) => {
   );
 };
 
+const Separator = () => <View style={styles.separator} />;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background,
   },
-  header: {
-    padding: 20,
-    paddingTop: 10,
+  list: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xl,
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  intro: {
+    ...type.body,
+    color: colors.textSecondary,
+    marginHorizontal: spacing.sm,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xl,
   },
-  headerSubtitle: {
-    opacity: 0.7,
-    marginTop: 5,
+  status: {
+    marginHorizontal: spacing.sm,
+    marginBottom: spacing.lg,
   },
-  scanningContainer: {
-    padding: 20,
+  statusLine: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
   },
-  scanningText: {
-    marginTop: 15,
-    fontSize: 16,
+  statusText: {
+    color: colors.textSecondary,
+    fontSize: 14,
   },
-  progressBar: {
-    width: '80%',
-    marginTop: 15,
+  track: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.control,
+    overflow: 'hidden',
   },
-  emptyContainer: {
-    flex: 1,
+  trackFill: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.accent,
+  },
+  sectionLabel: {
+    ...type.label,
+    fontWeight: '600',
+    marginHorizontal: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+  },
+  rowPressed: {
+    backgroundColor: colors.control,
+  },
+  separator: {
+    height: spacing.sm,
+  },
+  tile: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    backgroundColor: colors.accentSoft,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
   },
-  emptyText: {
-    textAlign: 'center',
-    marginTop: 10,
-    opacity: 0.7,
+  rowText: {
+    flex: 1,
   },
-  resultText: {
-    paddingHorizontal: 20,
-    marginBottom: 10,
+  rowTitle: {
+    ...type.body,
+    fontWeight: '600',
+  },
+  rowSubtitle: {
+    ...type.caption,
+    marginTop: 2,
+  },
+  connectText: {
+    color: colors.accentText,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  helpCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  helpTitle: {
+    ...type.heading,
+  },
+  helpBody: {
+    color: colors.textSecondary,
+    fontSize: 14,
+  },
+  helpItem: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    alignItems: 'flex-start',
+  },
+  helpText: {
+    flex: 1,
+    color: colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  footer: {
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xxl,
+    paddingTop: spacing.sm,
+  },
+  primaryButton: {
+    borderRadius: radius.md,
+    marginBottom: spacing.xs,
+  },
+  buttonContent: {
+    height: 52,
+  },
+  buttonLabel: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
-  listContainer: {
-    padding: 16,
+  dialog: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
   },
-  deviceCard: {
-    marginBottom: 16,
+  dialogTitle: {
+    color: colors.text,
   },
-  hintText: {
-    marginTop: 4,
-    opacity: 0.7,
+  dialogBody: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    marginBottom: spacing.md,
   },
-  buttonContainer: {
-    padding: 16,
-    gap: 10,
-  },
-  button: {
-    marginVertical: 5,
-  },
-  dialogText: {
-    marginBottom: 15,
-  },
-  input: {
-    marginBottom: 10,
+  dialogInput: {
+    backgroundColor: colors.background,
   },
 });
 
