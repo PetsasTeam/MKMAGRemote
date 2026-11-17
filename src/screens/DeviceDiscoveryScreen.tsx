@@ -1,6 +1,8 @@
 /**
  * Device Discovery Screen
- * Scans the local network for MAG boxes with Remote control enabled.
+ * Scans the local network for MAG boxes. Boxes with Remote control enabled can
+ * be connected straight away; boxes that look like a MAG but have it switched
+ * off are listed with instructions and a "Check again" button.
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
@@ -20,8 +22,8 @@ import {
 } from 'react-native-paper';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../App';
-import { MAGDevice } from '../types';
 import DeviceDiscoveryService, {
+  DiscoveredDevice,
   NoWifiError,
   isValidIPv4,
 } from '../services/DeviceDiscoveryService';
@@ -40,17 +42,28 @@ const NOTHING_FOUND_HELP =
   'No MAG boxes answered. Please check:\n\n' +
   '1. The box is switched on\n' +
   '2. Your phone and the box are on the same Wi-Fi network\n' +
-  '3. On the box: Settings → System settings → Remote control is enabled\n' +
+  '3. On the box: Settings → System settings → Remote control → "Use remote control" is on\n' +
   '4. On iPhone: if you were asked about "Local Network" access, tap Allow ' +
   '(or enable it in iOS Settings → Privacy & Security → Local Network) and scan again';
+
+const REMOTE_OFF_HELP =
+  'This looks like a MAG box, but its remote control service is switched off.\n\n' +
+  'On the box open Settings → System settings → Remote control, turn on ' +
+  '"Use remote control", then tap Check Again.';
+
+const upsert = (list: DiscoveredDevice[], device: DiscoveredDevice) => [
+  ...list.filter(d => d.id !== device.id),
+  device,
+];
 
 const DeviceDiscoveryScreen: React.FC<Props> = ({ navigation }) => {
   const theme = useTheme();
   const [scanning, setScanning] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [devices, setDevices] = useState<MAGDevice[]>([]);
+  const [devices, setDevices] = useState<DiscoveredDevice[]>([]);
   const [showManualDialog, setShowManualDialog] = useState(false);
   const [manualIp, setManualIp] = useState('');
+  const [checkingId, setCheckingId] = useState<string | null>(null);
   const { connect, connectingId, pairingDialog } = useMagConnect(device =>
     navigation.replace('Remote', {
       deviceId: device.id,
@@ -66,7 +79,7 @@ const DeviceDiscoveryScreen: React.FC<Props> = ({ navigation }) => {
 
     try {
       const found = await DeviceDiscoveryService.scanNetwork(
-        device => setDevices(prev => [...prev, device]),
+        device => setDevices(prev => upsert(prev, device)),
         value => setProgress(value),
       );
       if (found.length === 0) {
@@ -103,12 +116,16 @@ const DeviceDiscoveryScreen: React.FC<Props> = ({ navigation }) => {
     try {
       const device = await DeviceDiscoveryService.addManualDevice(ip);
       if (device) {
-        setDevices(prev => [...prev.filter(d => d.id !== device.id), device]);
+        setDevices(prev => upsert(prev, device));
+        if (device.remoteControlOff) {
+          Alert.alert('Remote control is off', REMOTE_OFF_HELP);
+        }
       } else {
         Alert.alert(
           'Device Not Found',
-          `Nothing at ${ip} accepts MAG remote connections.\n\n` +
-            'Check the IP and make sure Settings → System settings → Remote control is enabled on the box.',
+          `No MAG box answered at ${ip}.\n\n` +
+            'Check the IP address on the box (Settings → System settings → Network), make sure ' +
+            'your phone is on the same network, and that "Use remote control" is on.',
         );
       }
     } finally {
@@ -117,30 +134,69 @@ const DeviceDiscoveryScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  const renderDeviceCard = ({ item }: { item: MAGDevice }) => (
-    <Card style={styles.deviceCard}>
-      <Card.Content>
-        <Title>{item.name}</Title>
-        <Paragraph>IP: {item.ip}</Paragraph>
-      </Card.Content>
-      <Card.Actions>
-        <Button
-          mode="contained"
-          onPress={() => connect(item)}
-          loading={connectingId === item.id}
-          disabled={connectingId !== null}>
-          {connectingId === item.id ? 'Connecting...' : 'Connect'}
-        </Button>
-      </Card.Actions>
-    </Card>
-  );
+  const handleCheckAgain = async (item: DiscoveredDevice) => {
+    setCheckingId(item.id);
+    try {
+      const device = await DeviceDiscoveryService.addManualDevice(item.ip);
+      if (device && !device.remoteControlOff) {
+        setDevices(prev => upsert(prev, device));
+      } else {
+        Alert.alert('Still not reachable', REMOTE_OFF_HELP);
+      }
+    } finally {
+      setCheckingId(null);
+    }
+  };
+
+  const renderDeviceCard = ({ item }: { item: DiscoveredDevice }) =>
+    item.remoteControlOff ? (
+      <Card style={styles.deviceCard}>
+        <Card.Content>
+          <Title>{item.name}</Title>
+          <Paragraph>IP: {item.ip}</Paragraph>
+          <Paragraph style={styles.warningText}>
+            Remote control is off. On the box: Settings → System settings → Remote control →
+            turn on "Use remote control".
+          </Paragraph>
+        </Card.Content>
+        <Card.Actions>
+          <Button
+            mode="outlined"
+            icon="refresh"
+            onPress={() => handleCheckAgain(item)}
+            loading={checkingId === item.id}
+            disabled={checkingId !== null}>
+            Check Again
+          </Button>
+        </Card.Actions>
+      </Card>
+    ) : (
+      <Card style={styles.deviceCard}>
+        <Card.Content>
+          <Title>{item.name}</Title>
+          <Paragraph>IP: {item.ip}</Paragraph>
+        </Card.Content>
+        <Card.Actions>
+          <Button
+            mode="contained"
+            onPress={() => connect(item)}
+            loading={connectingId === item.id}
+            disabled={connectingId !== null}>
+            {connectingId === item.id ? 'Connecting...' : 'Connect'}
+          </Button>
+        </Card.Actions>
+      </Card>
+    );
+
+  const readyCount = devices.filter(d => !d.remoteControlOff).length;
+  const offCount = devices.length - readyCount;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.header}>
         <Title style={styles.headerTitle}>Find MAG Devices</Title>
         <Paragraph style={styles.headerSubtitle}>
-          Looking for MAG boxes with Remote control enabled on your Wi-Fi
+          Looking for MAG boxes on your Wi-Fi network
         </Paragraph>
       </View>
 
@@ -165,9 +221,14 @@ const DeviceDiscoveryScreen: React.FC<Props> = ({ navigation }) => {
 
       {devices.length > 0 && (
         <>
-          <Text style={styles.resultText}>Found {devices.length} device(s)</Text>
+          <Text style={styles.resultText}>
+            {`Found ${readyCount} ready`}
+            {offCount > 0 ? `, ${offCount} with remote control off` : ''}
+          </Text>
           <FlatList
-            data={devices}
+            data={[...devices].sort(
+              (a, b) => Number(!!a.remoteControlOff) - Number(!!b.remoteControlOff),
+            )}
             renderItem={renderDeviceCard}
             keyExtractor={item => item.id}
             contentContainerStyle={styles.listContainer}
@@ -275,6 +336,10 @@ const styles = StyleSheet.create({
   },
   deviceCard: {
     marginBottom: 16,
+  },
+  warningText: {
+    marginTop: 6,
+    color: '#FFB74D',
   },
   buttonContainer: {
     padding: 16,

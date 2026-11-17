@@ -14,6 +14,17 @@ interface Waiter {
   timer: ReturnType<typeof setTimeout>;
 }
 
+/**
+ * react-native-tcp-socket's iOS code converts `connectTimeout` to whole
+ * seconds with integer division, so anything under 1000 ms becomes a 0 s
+ * timeout and every connection fails instantly ("Attempt to connect to host
+ * timed out"). Round up to whole seconds for the native side; callers keep
+ * their own JS timer for the exact timeout.
+ */
+export function nativeConnectTimeout(timeoutMs: number): number {
+  return Math.max(1, Math.ceil(timeoutMs / 1000)) * 1000;
+}
+
 /** Unread replies we keep around (keep-alive pings produce replies nobody waits for). */
 const MAX_QUEUED_FRAMES = 20;
 
@@ -36,7 +47,7 @@ export class MAGConnection {
       const onError = (error: Error) => fail(error);
       const onClose = () => fail(new Error('Connection closed'));
       const socket = TcpSocket.createConnection(
-        { host, port: MAG_REMOTE_PORT, connectTimeout: timeoutMs },
+        { host, port: MAG_REMOTE_PORT, connectTimeout: nativeConnectTimeout(timeoutMs) },
         () => {
           if (settled) {
             return;
