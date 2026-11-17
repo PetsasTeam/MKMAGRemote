@@ -55,10 +55,8 @@ export const GestureRemote: React.FC<GestureRemoteProps> = ({
       onMoveShouldSetPanResponder: () => true,
 
       onPanResponderGrant: () => {
-        pan.setOffset({
-          x: pan.x._value,
-          y: pan.y._value,
-        });
+        // Move the current position into the offset (same as setOffset({x: value, ...})).
+        pan.extractOffset();
       },
 
       onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {

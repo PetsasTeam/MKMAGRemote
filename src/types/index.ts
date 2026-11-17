@@ -107,17 +107,25 @@ export interface DeviceConnection {
 export interface Macro {
   id: string;
   name: string;
-  icon: string;
+  icon?: string;
   commands: MAGCommand[];
   delay?: number; // Delay between commands in ms
   description?: string;
 }
 
+/**
+ * A one-tap shortcut: either a channel (digits + OK) or a single pinned key.
+ * Entries saved by older versions have no `kind` and are treated as keys.
+ */
 export interface QuickAction {
   id: string;
   name: string;
-  icon: string;
-  command: MAGCommand;
+  kind?: 'channel' | 'key';
+  /** For channels: the channel number, e.g. "101". */
+  channel?: string;
+  /** For keys: the remote key to send. */
+  command?: MAGCommand;
+  icon?: string;
   color?: string;
 }
 

@@ -18,7 +18,14 @@ import {
   solicitMessage,
 } from './auraProtocol';
 
-type UdpSocket = ReturnType<typeof dgram.createSocket>;
+// react-native-udp's sockets are EventEmitters, but its type definitions leave
+// the listener methods out.
+type Listener = (...args: any[]) => void;
+type UdpSocket = ReturnType<typeof dgram.createSocket> & {
+  on(event: string, listener: Listener): unknown;
+  once(event: string, listener: Listener): unknown;
+  removeListener(event: string, listener: Listener): unknown;
+};
 export type AuraConnectResult = 'ok' | 'unreachable' | 'rejected';
 
 const PING_TRIES = 3;
@@ -37,7 +44,7 @@ const delay = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, m
 /** Opens a UDP socket on a free port. */
 export function openUdpSocket(): Promise<UdpSocket> {
   return new Promise((resolve, reject) => {
-    const socket = dgram.createSocket({ type: 'udp4' });
+    const socket = dgram.createSocket({ type: 'udp4' }) as UdpSocket;
     const onError = (error: Error) => reject(error);
     socket.once('error', onError);
     socket.once('listening', () => {

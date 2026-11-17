@@ -260,7 +260,14 @@ class MAGService {
   }
 
   isCommandSupported(command: MAGCommand): boolean {
-    return this.isAura() ? isAuraCommandSupported(command) : isCommandSupported(command);
+    return this.isCommandSupportedFor(this.currentDevice, command);
+  }
+
+  /** Whether `device` (MAGic Remote by default) can receive `command`, connected or not. */
+  isCommandSupportedFor(device: MAGDevice | null, command: MAGCommand): boolean {
+    return device?.protocol === 'aurahd'
+      ? isAuraCommandSupported(command)
+      : isCommandSupported(command);
   }
 
   /** Send a remote button. Returns false if it failed or the button has no MAG code. */

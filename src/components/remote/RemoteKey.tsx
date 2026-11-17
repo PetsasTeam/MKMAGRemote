@@ -49,8 +49,12 @@ const RemoteKey: React.FC<Props> = ({
   }>({});
 
   const stopRepeat = () => {
-    clearTimeout(timers.current.delay);
-    clearInterval(timers.current.every);
+    if (timers.current.delay !== undefined) {
+      clearTimeout(timers.current.delay);
+    }
+    if (timers.current.every !== undefined) {
+      clearInterval(timers.current.every);
+    }
     timers.current = {};
   };
   useEffect(() => stopRepeat, []);

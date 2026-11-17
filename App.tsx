@@ -58,6 +58,10 @@ const theme = {
     onBackground: colors.text,
     onSurface: colors.text,
     onSurfaceVariant: colors.textSecondary,
+    // Snackbars use the inverse pair; keep them light-on-dark like the rest of the app.
+    inverseSurface: colors.controlPressed,
+    inverseOnSurface: colors.text,
+    inversePrimary: colors.accentText,
   },
 };
 
@@ -116,7 +120,7 @@ function App(): React.JSX.Element {
               <Stack.Screen
                 name="QuickActions"
                 component={QuickActionsScreen}
-                options={{ title: 'Quick Actions' }}
+                options={{ title: 'Quick actions' }}
               />
             </Stack.Navigator>
           </NavigationContainer>
