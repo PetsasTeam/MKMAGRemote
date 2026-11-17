@@ -46,5 +46,16 @@ target 'IPTVMKRemote' do
       config[:reactNativePath],
       :mac_catalyst_enabled => false
     )
+
+    # Xcode 15+ sandboxes build scripts by default, which blocks React Native's
+    # bundling and Hermes scripts ("Sandbox: bash deny file-write-create").
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |build_config|
+        build_config.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
+      end
+    end
+    installer.pods_project.build_configurations.each do |build_config|
+      build_config.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
+    end
   end
 end
