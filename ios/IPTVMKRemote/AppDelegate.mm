@@ -1,6 +1,7 @@
 #import "AppDelegate.h"
 
 #import <React/RCTBundleURLProvider.h>
+#import <React/RCTRootView.h>
 
 @implementation AppDelegate
 
@@ -12,6 +13,26 @@
   self.initialProps = @{};
 
   return [super application:application didFinishLaunchingWithOptions:launchOptions];
+}
+
+// Match the launch screen and app background (#0B0D12) instead of the
+// default white, so there's no white flash while the JavaScript loads.
+- (UIView *)createRootViewWithBridge:(RCTBridge *)bridge
+                          moduleName:(NSString *)moduleName
+                           initProps:(NSDictionary *)initProps
+{
+  UIView *rootView = [super createRootViewWithBridge:bridge moduleName:moduleName initProps:initProps];
+  rootView.backgroundColor = [UIColor colorWithRed:11 / 255.0 green:13 / 255.0 blue:18 / 255.0 alpha:1];
+  // Keep showing the launch screen until the first React frame is drawn.
+  if ([rootView isKindOfClass:[RCTRootView class]]) {
+    UIViewController *launch =
+        [[UIStoryboard storyboardWithName:@"LaunchScreen" bundle:nil] instantiateInitialViewController];
+    if (launch.view) {
+      ((RCTRootView *)rootView).loadingView = launch.view;
+      ((RCTRootView *)rootView).loadingViewFadeDuration = 0.25;
+    }
+  }
+  return rootView;
 }
 
 - (NSURL *)sourceURLForBridge:(RCTBridge *)bridge
