@@ -1,0 +1,120 @@
+diff --git a/node_modules/react-native-tcp-socket/ios/TcpSockets.m b/node_modules/react-native-tcp-socket/ios/TcpSockets.m
+index 0fe15d2..4bdd7e1 100644
+--- a/node_modules/react-native-tcp-socket/ios/TcpSockets.m
++++ b/node_modules/react-native-tcp-socket/ios/TcpSockets.m
+@@ -34,8 +34,20 @@ RCT_EXPORT_MODULE()
+     // Does nothing
+ }
+ 
++// _clients is touched from the module's method queue and from socket delegate
++// queues (onClose), so every access goes through @synchronized(self).
++- (TcpSocketClient *)clientForId:(NSNumber *)cId {
++    @synchronized(self) {
++        return cId ? _clients[cId] : nil;
++    }
++}
++
+ - (void)dealloc {
+-    for (NSNumber *cId in _clients.allKeys) {
++    NSArray<NSNumber *> *ids;
++    @synchronized(self) {
++        ids = [_clients.allKeys copy];
++    }
++    for (NSNumber *cId in ids) {
+         [self destroyClient:cId];
+     }
+ }
+@@ -47,19 +59,21 @@ RCT_EXPORT_MODULE()
+         return nil;
+     }
+ 
+-    if (!_clients) {
+-        _clients = [NSMutableDictionary new];
+-    }
+-
+-    if (_clients[cId]) {
+-        RCTLogWarn(@"%@.createSocket called twice with the same id.",
+-                   [self class]);
+-        return nil;
+-    }
++    @synchronized(self) {
++        if (!_clients) {
++            _clients = [NSMutableDictionary new];
++        }
+ 
+-    _clients[cId] = [TcpSocketClient socketClientWithId:cId andConfig:self];
++        if (_clients[cId]) {
++            RCTLogWarn(@"%@.createSocket called twice with the same id.",
++                       [self class]);
++            return nil;
++        }
+ 
+-    return _clients[cId];
++        TcpSocketClient *client = [TcpSocketClient socketClientWithId:cId andConfig:self];
++        _clients[cId] = client;
++        return client;
++    }
+ }
+ 
+ RCT_EXPORT_METHOD(connect
+@@ -67,7 +81,7 @@ RCT_EXPORT_METHOD(connect
+                   : (NSString *)host port
+                   : (int)port withOptions
+                   : (NSDictionary *)options) {
+-    TcpSocketClient *client = _clients[cId];
++    TcpSocketClient *client = [self clientForId:cId];
+     if (!client) {
+         client = [self createSocket:cId];
+     }
+@@ -112,7 +126,7 @@ RCT_EXPORT_METHOD(close : (nonnull NSNumber *)cId) { [self destroyClient:cId]; }
+ RCT_EXPORT_METHOD(listen
+                   : (nonnull NSNumber *)cId withOptions
+                   : (nonnull NSDictionary *)options) {
+-    TcpSocketClient *client = _clients[cId];
++    TcpSocketClient *client = [self clientForId:cId];
+     if (!client) {
+         client = [self createSocket:cId];
+     }
+@@ -127,7 +141,7 @@ RCT_EXPORT_METHOD(listen
+ RCT_EXPORT_METHOD(startTLS
+                   : (nonnull NSNumber *)cId tlsOptions
+                   : (nonnull NSDictionary *)tlsOptions) {
+-    TcpSocketClient *client = _clients[cId];
++    TcpSocketClient *client = [self clientForId:cId];
+     if (!client) {
+         if (!_pendingTLS) {
+             _pendingTLS = [NSMutableDictionary new];
+@@ -264,7 +278,12 @@ RCT_EXPORT_METHOD(getCertificate:(nonnull NSNumber *)cId
+ }
+ 
+ - (void)addClient:(TcpSocketClient *)client {
+-    _clients[client.id] = client;
++    @synchronized(self) {
++        if (!_clients) {
++            _clients = [NSMutableDictionary new];
++        }
++        _clients[client.id] = client;
++    }
+ }
+ 
+ - (void)onSocketConnection:(TcpSocketClient *)client
+@@ -323,7 +342,9 @@ RCT_EXPORT_METHOD(getCertificate:(nonnull NSNumber *)cId
+                            @"hadError" : err == nil ? @NO : @YES
+                        }];
+ 
+-    [_clients removeObjectForKey:clientID];
++    @synchronized(self) {
++        [_clients removeObjectForKey:clientID];
++    }
+ }
+ 
+ - (void)onError:(TcpSocketClient *)client withError:(NSError *)err {
+@@ -332,7 +353,7 @@ RCT_EXPORT_METHOD(getCertificate:(nonnull NSNumber *)cId
+ }
+ 
+ - (TcpSocketClient *)findClient:(nonnull NSNumber *)cId {
+-    TcpSocketClient *client = _clients[cId];
++    TcpSocketClient *client = [self clientForId:cId];
+     if (!client) {
+         NSString *msg =
+             [NSString stringWithFormat:@"no client found with id %@", cId];

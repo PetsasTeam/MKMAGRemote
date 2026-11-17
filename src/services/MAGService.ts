@@ -5,11 +5,16 @@
  * "MAGic Remote" app: an encrypted TCP session on port 40611, authorised by a
  * one-time pairing where the box shows a 6-digit code on the TV.
  *
+ * Boxes that speak the AuraHD Remote protocol instead (UDP, Device name +
+ * Password) are handed to AuraService; callers don't need to know which.
+ *
  * On the box: Settings -> System settings -> Remote control -> enable it.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MAGDevice, MAGCommand } from '../types';
 import { MAGConnection } from './MAGConnection';
+import AuraService from './AuraService';
+import { isAuraCommandSupported } from './auraProtocol';
 import { getRcCode, isCommandSupported } from './magKeyCodes';
 import {
   MAGIdentity,
@@ -37,7 +42,10 @@ const TEXT_CHAR_DELAY_MS = 40;
 const delay = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 
 class SessionError extends Error {
-  constructor(readonly result: Exclude<ConnectResult, 'ok'>, message: string) {
+  constructor(
+    readonly result: Exclude<ConnectResult, 'ok'>,
+    message: string,
+  ) {
     super(message);
   }
 }
@@ -60,7 +68,9 @@ class MAGService {
     }
     let devId = await AsyncStorage.getItem(DEVICE_ID_KEY);
     if (!devId) {
-      devId = Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+      devId = Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join(
+        '',
+      );
       await AsyncStorage.setItem(DEVICE_ID_KEY, devId);
     }
     this.identity = { devId, devDescr: DEVICE_DESCRIPTION };
@@ -139,9 +149,16 @@ class MAGService {
     }
   }
 
-  /** Connect to a paired device. */
+  /** Connect to a paired device (or, for AuraHD boxes, one with a password). */
   async connect(device: MAGDevice): Promise<ConnectResult> {
     this.disconnect();
+    if (device.protocol === 'aurahd') {
+      const result = await AuraService.connect(device);
+      if (result === 'ok') {
+        this.currentDevice = device;
+      }
+      return result;
+    }
     if (!device.pairingCode) {
       return 'rejected';
     }
@@ -157,6 +174,7 @@ class MAGService {
   }
 
   disconnect(): void {
+    AuraService.disconnect();
     this.stopKeepAlive();
     this.connection?.close();
     this.connection = null;
@@ -237,12 +255,19 @@ class MAGService {
 
   // ---------------------------------------------------------------- commands
 
+  private isAura(): boolean {
+    return this.currentDevice?.protocol === 'aurahd';
+  }
+
   isCommandSupported(command: MAGCommand): boolean {
-    return isCommandSupported(command);
+    return this.isAura() ? isAuraCommandSupported(command) : isCommandSupported(command);
   }
 
   /** Send a remote button. Returns false if it failed or the button has no MAG code. */
   async sendCommand(command: MAGCommand): Promise<boolean> {
+    if (this.isAura()) {
+      return AuraService.sendCommand(command);
+    }
     const code = getRcCode(command);
     if (code === undefined) {
       return false;
@@ -270,6 +295,9 @@ class MAGService {
   async sendText(text: string): Promise<boolean> {
     if (!text) {
       return true;
+    }
+    if (this.isAura()) {
+      return AuraService.sendText(text);
     }
     const identity = await this.getIdentity();
     try {

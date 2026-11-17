@@ -1,38 +1,57 @@
 /**
  * Device Discovery Service
  *
- * MAG boxes with "Remote control" enabled listen on TCP port 40611, which is
- * specific to the MAG remote protocol. Boxes with it switched off don't open
- * that port, but Infomir's Linux firmware still runs a Dropbear SSH server on
- * port 22, so those are reported too (as "remote control off") and the user is
- * told how to enable it. iOS gives apps no access to MAC addresses, so the
- * SSH banner is the best fingerprint available; other Dropbear devices
- * (some routers, NAS boxes) can show up as possible boxes as well.
+ * MAG boxes speak one of two remote protocols, depending on firmware:
+ *  - MAGic Remote: the box listens on TCP port 40611 (pairing code on the TV).
+ *  - AuraHD Remote: the box answers a UDP query on port 6000 (Device name +
+ *    Password); see AuraService.AuraDiscovery.
+ * Both only answer while Settings → System settings → Remote control is on,
+ * so only boxes that can actually be controlled are listed.
  *
  * The scan covers the phone's whole Wi-Fi subnet (up to MAX_SCAN_HOSTS
  * addresses), checking hosts in parallel.
  */
 import NetInfo from '@react-native-community/netinfo';
-import TcpSocket from 'react-native-tcp-socket';
 import { MAGDevice } from '../types';
-import { isMagRemotePortOpen, nativeConnectTimeout } from './MAGConnection';
+import { AuraDiscovery, MAX_SEND_WAIT_MS, discoverAuraBoxes } from './AuraService';
+import { AuraInfo } from './auraProtocol';
+import { isMagRemotePortOpen } from './MAGConnection';
 import { MAG_REMOTE_PORT } from './magProtocol';
 
 const PROBE_TIMEOUT_MS = 800;
 const MANUAL_PROBE_TIMEOUT_MS = 3000;
 const CONCURRENCY = 32;
-const SSH_PORT = 22;
+/** How long to wait for AuraHD boxes to answer after asking every host. */
+const AURA_WAIT_MS = 800;
+const MANUAL_AURA_WAIT_MS = 1500;
 /** Largest subnet scanned in full (a /22). Bigger networks scan the phone's /24. */
 export const MAX_SCAN_HOSTS = 1022;
 
-/** A device found by a scan. `remoteControlOff` = looks like a MAG, but port 40611 is closed. */
-export interface DiscoveredDevice extends MAGDevice {
-  remoteControlOff?: boolean;
+const delay = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
+
+/** A device found by a scan: a box that answered one of the remote protocols. */
+export type DiscoveredDevice = MAGDevice;
+
+/** A box that answered AuraHD discovery (connects with its Remote control password). */
+export function makeAuraDevice(ip: string, info: AuraInfo): DiscoveredDevice {
+  const model = info.type || 'MAG';
+  return {
+    id: `${ip}:${info.port}`,
+    name: info.name ? `${model} “${info.name}”` : `${model} (${ip})`,
+    ip,
+    port: info.port,
+    model,
+    protocol: 'aurahd',
+    serial: info.serialNumber || undefined,
+  };
 }
 
-/** Infomir's Linux firmware ships Dropbear as its SSH server. */
-export function isLikelyMagSshBanner(banner: string | null): boolean {
-  return !!banner && /^SSH-2\.0-dropbear/i.test(banner.trim());
+/** Adds a device to scan results, replacing an earlier entry with the same id. */
+export function mergeDiscovered(
+  list: DiscoveredDevice[],
+  device: DiscoveredDevice,
+): DiscoveredDevice[] {
+  return [...list.filter(d => d.id !== device.id), device];
 }
 
 function ipToInt(ip: string): number {
@@ -57,7 +76,7 @@ export function hostsToScan(
   if (subnetMask && isValidIPv4(subnetMask)) {
     const m = ipToInt(subnetMask);
     const hostBits = 32 - m.toString(2).replace(/0+$/, '').length;
-    const contiguous = m === 0 ? false : (2 ** 32 - 2 ** hostBits) === m;
+    const contiguous = m === 0 ? false : 2 ** 32 - 2 ** hostBits === m;
     const hostCount = 2 ** hostBits - 2;
     if (contiguous && hostBits >= 2 && hostCount <= maxHosts) {
       mask = m;
@@ -76,37 +95,6 @@ export function hostsToScan(
   return hosts;
 }
 
-/** Read the first line a TCP service sends (e.g. an SSH banner), or null. */
-export function readBanner(host: string, port: number, timeoutMs: number): Promise<string | null> {
-  return new Promise(resolve => {
-    let settled = false;
-    let text = '';
-    const socket = TcpSocket.createConnection(
-      { host, port, connectTimeout: nativeConnectTimeout(timeoutMs) },
-      () => {},
-    );
-    const finish = (value: string | null) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      clearTimeout(timer);
-      socket.destroy();
-      resolve(value);
-    };
-    const timer = setTimeout(() => finish(text ? text.trim() : null), timeoutMs);
-    socket.on('data', data => {
-      text += typeof data === 'string' ? data : String.fromCharCode(...new Uint8Array(data as ArrayBuffer));
-      const newline = text.indexOf('\n');
-      if (newline >= 0) {
-        finish(text.slice(0, newline).trim());
-      }
-    });
-    socket.on('error', () => finish(null));
-    socket.on('close', () => finish(text ? text.trim() : null));
-  });
-}
-
 export class NoWifiError extends Error {
   constructor() {
     super('Connect your phone to the same Wi-Fi network as your MAG box.');
@@ -115,10 +103,7 @@ export class NoWifiError extends Error {
 
 export function isValidIPv4(ip: string): boolean {
   const parts = ip.trim().split('.');
-  return (
-    parts.length === 4 &&
-    parts.every(p => /^\d{1,3}$/.test(p) && Number(p) <= 255)
-  );
+  return parts.length === 4 && parts.every(p => /^\d{1,3}$/.test(p) && Number(p) <= 255);
 }
 
 export function makeMagDevice(ip: string): MAGDevice {
@@ -136,12 +121,18 @@ class DeviceDiscoveryService {
   private scanning = false;
 
   /** The phone's IPv4 address and subnet mask on Wi-Fi/Ethernet, or null if not on a LAN. */
-  async getLocalNetwork(): Promise<{ ip: string; subnet: string | null } | null> {
+  async getLocalNetwork(): Promise<{
+    ip: string;
+    subnet: string | null;
+  } | null> {
     const state = await NetInfo.fetch();
     if (state.type !== 'wifi' && state.type !== 'ethernet') {
       return null;
     }
-    const details = state.details as { ipAddress?: string | null; subnet?: string | null } | null;
+    const details = state.details as {
+      ipAddress?: string | null;
+      subnet?: string | null;
+    } | null;
     const ip = details?.ipAddress;
     if (!ip || !isValidIPv4(ip)) {
       return null;
@@ -154,19 +145,9 @@ class DeviceDiscoveryService {
     return (await this.getLocalNetwork())?.ip ?? null;
   }
 
-  /** Check one host: ready (40611 open), remote control off (Dropbear SSH), or nothing. */
+  /** Check one host for the MAGic Remote protocol (TCP 40611). */
   async probeHost(ip: string, timeoutMs = PROBE_TIMEOUT_MS): Promise<DiscoveredDevice | null> {
-    const [remoteOpen, banner] = await Promise.all([
-      isMagRemotePortOpen(ip, timeoutMs),
-      readBanner(ip, SSH_PORT, timeoutMs),
-    ]);
-    if (remoteOpen) {
-      return makeMagDevice(ip);
-    }
-    if (isLikelyMagSshBanner(banner)) {
-      return { ...makeMagDevice(ip), name: `Possible MAG (${ip})`, remoteControlOff: true };
-    }
-    return null;
+    return (await isMagRemotePortOpen(ip, timeoutMs)) ? makeMagDevice(ip) : null;
   }
 
   /**
@@ -183,22 +164,37 @@ class DeviceDiscoveryService {
     }
 
     const generation = ++this.scanGeneration;
+
     this.scanning = true;
     const targets = hostsToScan(network.ip, network.subnet);
 
-    const found: DiscoveredDevice[] = [];
+    let found: DiscoveredDevice[] = [];
+    const report = (device: DiscoveredDevice) => {
+      if (generation !== this.scanGeneration) {
+        return;
+      }
+      found = mergeDiscovered(found, device);
+      onDeviceFound?.(device);
+    };
+    // AuraHD boxes answer over UDP. Ask every host first, while the network
+    // stack is idle: running this alongside the TCP probes below slows the
+    // native sends to a crawl. Replies keep arriving during the TCP scan.
+    const aura = await AuraDiscovery.start((ip, info) => report(makeAuraDevice(ip, info)));
+    if (aura) {
+      targets.forEach(ip => aura.ask(ip));
+      await aura.sent(MAX_SEND_WAIT_MS);
+      await delay(AURA_WAIT_MS);
+      // A UDP packet can get lost on busy Wi-Fi: ask the silent hosts once more.
+      targets.filter(ip => !aura.found.has(ip)).forEach(ip => aura.ask(ip));
+      await aura.sent(MAX_SEND_WAIT_MS);
+    }
     let next = 0;
     let done = 0;
     const worker = async () => {
       while (next < targets.length && generation === this.scanGeneration) {
         const ip = targets[next++];
-        const device = await this.probeHost(ip);
-        if (device) {
-          if (generation !== this.scanGeneration) {
-            return;
-          }
-          found.push(device);
-          onDeviceFound?.(device);
+        if (await isMagRemotePortOpen(ip, PROBE_TIMEOUT_MS)) {
+          report(makeMagDevice(ip));
         }
         done++;
         onProgress?.((done / targets.length) * 100);
@@ -207,7 +203,11 @@ class DeviceDiscoveryService {
 
     try {
       await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+      if (aura && generation === this.scanGeneration) {
+        await aura.finish(0, false);
+      }
     } finally {
+      aura?.close();
       if (generation === this.scanGeneration) {
         this.scanning = false;
       }
@@ -220,16 +220,18 @@ class DeviceDiscoveryService {
     return this.scanNetwork(onDeviceFound);
   }
 
-  /**
-   * Check one IP. Returns a ready device, a device with `remoteControlOff`
-   * (looks like a MAG but port 40611 is closed), or null if nothing matches.
-   */
+  /** Check one IP for either remote protocol (MAGic Remote or AuraHD); null if neither answers. */
   async addManualDevice(ip: string): Promise<DiscoveredDevice | null> {
     const trimmed = ip.trim();
     if (!isValidIPv4(trimmed)) {
       return null;
     }
-    return this.probeHost(trimmed, MANUAL_PROBE_TIMEOUT_MS);
+    const [probed, aura] = await Promise.all([
+      this.probeHost(trimmed, MANUAL_PROBE_TIMEOUT_MS),
+      discoverAuraBoxes([trimmed], MANUAL_AURA_WAIT_MS),
+    ]);
+    const info = aura.get(trimmed);
+    return probed ?? (info ? makeAuraDevice(trimmed, info) : null);
   }
 
   stopScan(): void {

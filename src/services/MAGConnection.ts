@@ -122,7 +122,8 @@ export class MAGConnection {
   }
 
   private handleData(data: Uint8Array | string): void {
-    const chunk = typeof data === 'string' ? Uint8Array.from(data, c => c.charCodeAt(0)) : new Uint8Array(data);
+    const chunk =
+      typeof data === 'string' ? Uint8Array.from(data, c => c.charCodeAt(0)) : new Uint8Array(data);
     const merged = new Uint8Array(this.buffer.length + chunk.length);
     merged.set(this.buffer);
     merged.set(chunk, this.buffer.length);

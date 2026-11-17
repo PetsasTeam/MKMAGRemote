@@ -110,7 +110,7 @@ export function utf8DecodeStrict(bytes: Uint8Array): string | null {
   return result;
 }
 
-function bytesToWordArray(bytes: Uint8Array): CryptoJS.lib.WordArray {
+export function bytesToWordArray(bytes: Uint8Array): CryptoJS.lib.WordArray {
   const words: number[] = [];
   for (let i = 0; i < bytes.length; i++) {
     words[i >>> 2] |= bytes[i] << (24 - (i % 4) * 8);
@@ -118,7 +118,7 @@ function bytesToWordArray(bytes: Uint8Array): CryptoJS.lib.WordArray {
   return CryptoJS.lib.WordArray.create(words, bytes.length);
 }
 
-function wordArrayToBytes(wordArray: CryptoJS.lib.WordArray): Uint8Array {
+export function wordArrayToBytes(wordArray: CryptoJS.lib.WordArray): Uint8Array {
   const { words, sigBytes } = wordArray;
   const out = new Uint8Array(sigBytes);
   for (let i = 0; i < sigBytes; i++) {
@@ -200,11 +200,7 @@ export function buildMessage(command: string, body: string, pairingCode?: string
   if (pairingCode) {
     bodyBytes = encrypt(pairingCode, bodyBytes);
   }
-  const message = concatBytes(
-    Uint8Array.from([...HEADER, 0, 0]),
-    utf8Encode(command),
-    bodyBytes,
-  );
+  const message = concatBytes(Uint8Array.from([...HEADER, 0, 0]), utf8Encode(command), bodyBytes);
   if (message.length > MAX_MESSAGE_LENGTH) {
     throw new Error(`MAG message too long (${message.length} bytes)`);
   }

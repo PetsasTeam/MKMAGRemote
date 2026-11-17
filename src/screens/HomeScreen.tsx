@@ -4,13 +4,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import {
-  View,
-  StyleSheet,
-  FlatList,
-  Alert,
-  TouchableOpacity,
-} from 'react-native';
+import { View, StyleSheet, FlatList, Alert, TouchableOpacity } from 'react-native';
 import {
   Button,
   Card,
@@ -29,7 +23,10 @@ import { RootStackParamList } from '../../App';
 import { useDevice } from '../context/DeviceContext';
 import { MAGDevice } from '../types';
 import { useMagConnect } from '../hooks/useMagConnect';
-import { isValidIPv4, makeMagDevice } from '../services/DeviceDiscoveryService';
+import DeviceDiscoveryService, {
+  isValidIPv4,
+  makeMagDevice,
+} from '../services/DeviceDiscoveryService';
 
 type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Home'>;
 
@@ -53,16 +50,12 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   useEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <IconButton
-          icon="cog"
-          size={24}
-          onPress={() => navigation.navigate('Settings')}
-        />
+        <IconButton icon="cog" size={24} onPress={() => navigation.navigate('Settings')} />
       ),
     });
   }, [navigation]);
 
-  const handleManualConnect = () => {
+  const handleManualConnect = async () => {
     const ip = manualIp.trim();
     if (!isValidIPv4(ip)) {
       Alert.alert('Invalid IP address', 'Enter the IP shown on the box, e.g. 192.168.1.50');
@@ -70,7 +63,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     }
     setShowManualDialog(false);
     setManualIp('');
-    connect(makeMagDevice(ip));
+    // Work out which remote protocol the box speaks (MAGic Remote or AuraHD).
+    const found = await DeviceDiscoveryService.addManualDevice(ip);
+    connect(found ?? makeMagDevice(ip));
   };
 
   const handleDeleteDevice = (deviceId: string) => {
@@ -84,7 +79,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           style: 'destructive',
           onPress: () => removeSavedDevice(deviceId),
         },
-      ]
+      ],
     );
   };
 
@@ -99,11 +94,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               {item.pairingCode ? 'Paired' : 'Not paired yet (you will be asked for a code)'}
             </Paragraph>
           </View>
-          <IconButton
-            icon="delete"
-            size={24}
-            onPress={() => handleDeleteDevice(item.id)}
-          />
+          <IconButton icon="delete" size={24} onPress={() => handleDeleteDevice(item.id)} />
         </View>
       </Card.Content>
       <Card.Actions>
@@ -154,9 +145,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.emptyContainer}>
           <IconButton icon="television" size={80} iconColor={theme.colors.primary} />
           <Title>No Devices Found</Title>
-          <Paragraph style={styles.emptyText}>
-            Add your MAG device to get started
-          </Paragraph>
+          <Paragraph style={styles.emptyText}>Add your MAG device to get started</Paragraph>
           <Button
             mode="contained"
             onPress={() => navigation.navigate('DeviceDiscovery')}
@@ -176,7 +165,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         <FlatList
           data={savedDevices}
           renderItem={renderDeviceCard}
-          keyExtractor={(item) => item.id}
+          keyExtractor={item => item.id}
           contentContainerStyle={styles.listContainer}
         />
       )}

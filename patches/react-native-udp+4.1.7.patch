@@ -1,0 +1,40 @@
+diff --git a/node_modules/react-native-udp/ios/UdpSocketClient.m b/node_modules/react-native-udp/ios/UdpSocketClient.m
+index 82e3288..75ded2b 100644
+--- a/node_modules/react-native-udp/ios/UdpSocketClient.m
++++ b/node_modules/react-native-udp/ios/UdpSocketClient.m
+@@ -119,7 +119,7 @@ NSString *const RCTUDPErrorDomain = @"RCTUDPErrorDomain";
+ 
+ - (BOOL)joinMulticastGroup:(NSString *)address error:(NSError **) error
+ {
+-    if(![_udpSocket joinMulticastGroup:address error:&error]){
++    if(![_udpSocket joinMulticastGroup:address error:error]){
+         NSLog(@"Error joining multicast group: %@", error);
+         return false;
+     }
+@@ -128,7 +128,7 @@ NSString *const RCTUDPErrorDomain = @"RCTUDPErrorDomain";
+ 
+ - (BOOL)leaveMulticastGroup:(NSString *)address error:(NSError **) error
+ {
+-    if(![_udpSocket leaveMulticastGroup:address error:&error]){
++    if(![_udpSocket leaveMulticastGroup:address error:error]){
+         NSLog(@"Error leaving multicast group: %@", error);
+         return false;
+     }
+@@ -162,12 +162,13 @@ NSString *const RCTUDPErrorDomain = @"RCTUDPErrorDomain";
+ remoteAddress:(NSString *)address
+      callback:(RCTResponseSenderBlock)callback
+ {
+-  [_udpSocket sendData:data toHost:address port:port withTimeout:-1 tag:tag];
++  // Register the callback before sending: the delegate runs on the main queue
++  // and can report the send before this method returns, losing the callback.
++  long msgTag = tag++;
+   if (callback) {
+-    [self setPendingSend:callback forKey:[NSNumber numberWithLong:tag]];
++    [self setPendingSend:callback forKey:[NSNumber numberWithLong:msgTag]];
+   }
+-
+-  tag++;
++  [_udpSocket sendData:data toHost:address port:port withTimeout:-1 tag:msgTag];
+ }
+ 
+ - (NSDictionary* ) address

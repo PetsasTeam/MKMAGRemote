@@ -1,10 +1,8 @@
 /// <reference types="node" />
 /**
- * Discovery helpers: which addresses a scan covers, how a MAG box with
- * Remote control switched off is recognised (Dropbear SSH banner), and
- * reading a service banner over TCP.
+ * Discovery helpers: which addresses a scan covers, native timeouts, and
+ * merging results from the two protocols.
  */
-import net from 'net';
 
 // react-native-tcp-socket mirrors Node's `net` API, so use Node sockets in tests.
 jest.mock('react-native-tcp-socket', () => {
@@ -25,8 +23,9 @@ jest.mock('@react-native-community/netinfo', () => ({
 // Imported after the mocks are registered.
 import {
   hostsToScan,
-  isLikelyMagSshBanner,
-  readBanner,
+  makeAuraDevice,
+  makeMagDevice,
+  mergeDiscovered,
 } from '../src/services/DeviceDiscoveryService';
 import { nativeConnectTimeout } from '../src/services/MAGConnection';
 
@@ -79,43 +78,23 @@ describe('nativeConnectTimeout', () => {
   });
 });
 
-describe('isLikelyMagSshBanner', () => {
-  it('accepts the Dropbear banner MAG firmware sends', () => {
-    expect(isLikelyMagSshBanner('SSH-2.0-dropbear_2017.75')).toBe(true);
-    expect(isLikelyMagSshBanner('SSH-2.0-dropbear_2015.67\r')).toBe(true);
-  });
-
-  it('rejects other SSH servers and missing banners', () => {
-    expect(isLikelyMagSshBanner('SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.20')).toBe(false);
-    expect(isLikelyMagSshBanner('')).toBe(false);
-    expect(isLikelyMagSshBanner(null)).toBe(false);
-  });
-});
-
-describe('readBanner', () => {
-  let server: net.Server;
-  let port: number;
-
-  beforeAll(done => {
-    server = net.createServer(socket => socket.write('SSH-2.0-dropbear_2017.75\r\nmore'));
-    server.listen(0, '127.0.0.1', () => {
-      port = (server.address() as net.AddressInfo).port;
-      done();
+describe('mergeDiscovered', () => {
+  it('keeps one entry per id and lists both protocols for different boxes', () => {
+    const magic = makeMagDevice('192.168.1.10');
+    const aura = makeAuraDevice('192.168.1.20', {
+      name: 'Lounge',
+      type: 'MAG424',
+      serialNumber: 'S',
+      port: 7666,
     });
-  });
-  afterAll(done => {
-    server.close(() => done());
-  });
-
-  it('returns the first line the service sends', async () => {
-    await expect(readBanner('127.0.0.1', port, 2000)).resolves.toBe('SSH-2.0-dropbear_2017.75');
-  });
-
-  it('returns null when nothing is listening', async () => {
-    const closed = net.createServer();
-    await new Promise<void>(resolve => closed.listen(0, '127.0.0.1', () => resolve()));
-    const closedPort = (closed.address() as net.AddressInfo).port;
-    await new Promise<void>(resolve => closed.close(() => resolve()));
-    await expect(readBanner('127.0.0.1', closedPort, 1000)).resolves.toBeNull();
+    let list = mergeDiscovered([], magic);
+    list = mergeDiscovered(list, aura);
+    list = mergeDiscovered(list, { ...aura });
+    expect(list.map(d => d.id)).toEqual(['192.168.1.10:40611', '192.168.1.20:7666']);
+    expect(list[1]).toMatchObject({
+      name: 'MAG424 “Lounge”',
+      protocol: 'aurahd',
+      port: 7666,
+    });
   });
 });

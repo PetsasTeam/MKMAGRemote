@@ -13,6 +13,15 @@ export interface MAGDevice {
   isConnected?: boolean;
   /** 6-digit code shown on the TV during pairing; also the encryption key. */
   pairingCode?: string;
+  /**
+   * Which remote protocol the box speaks: 'magic' (MAGic Remote, TCP 40611,
+   * pairing code; the default) or 'aurahd' (AuraHD Remote, UDP, password).
+   */
+  protocol?: 'magic' | 'aurahd';
+  /** AuraHD only: the Remote control password set on the box. */
+  password?: string;
+  /** AuraHD only: the box's serial number, from discovery. */
+  serial?: string;
 }
 
 export interface RemoteKey {
