@@ -23,6 +23,7 @@ import MacroService, { describeResult } from '../services/MacroService';
 import { commandInfo } from '../services/commandInfo';
 import MacroEditor from '../components/MacroEditor';
 import { colors, radius, spacing, type } from '../theme/tokens';
+import { t } from '../i18n';
 
 type MacrosScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Macros'>;
 
@@ -46,7 +47,7 @@ const MacrosScreen: React.FC<Props> = ({ navigation }) => {
         <Pressable
           onPress={() => setEditing(newMacro())}
           style={styles.headerButton}
-          accessibilityLabel="New macro"
+          accessibilityLabel={t('macros.new')}
           hitSlop={6}>
           <Icon source="plus" size={22} color={colors.text} />
         </Pressable>
@@ -56,11 +57,11 @@ const MacrosScreen: React.FC<Props> = ({ navigation }) => {
 
   const connectOrExplain = async (): Promise<boolean> => {
     if (!target) {
-      setMessage('Add a box first');
+      setMessage(t('shortcut.addBoxFirst'));
       return false;
     }
     if (!(await ensureConnected())) {
-      setMessage(`Couldn't connect to ${target.name}`);
+      setMessage(t('shortcut.couldntConnect', { name: target.name }));
       return false;
     }
     return true;
@@ -80,7 +81,9 @@ const MacrosScreen: React.FC<Props> = ({ navigation }) => {
 
   const tryInEditor = async (commands: MAGCommand[], delay: number) => {
     if (!(await connectOrExplain())) {
-      return target ? `Couldn't connect to ${target.name}` : 'Add a box first';
+      return target
+        ? t('shortcut.couldntConnect', { name: target.name })
+        : t('shortcut.addBoxFirst');
     }
     return describeResult(await MacroService.run(commands, delay));
   };
@@ -95,13 +98,13 @@ const MacrosScreen: React.FC<Props> = ({ navigation }) => {
 
   const showOptions = (macro: Macro) => {
     Alert.alert(macro.name, undefined, [
-      { text: 'Edit', onPress: () => setEditing(macro) },
+      { text: t('common.edit'), onPress: () => setEditing(macro) },
       {
-        text: 'Delete',
+        text: t('common.delete'),
         style: 'destructive',
         onPress: () => updateSettings({ macros: macros.filter(m => m.id !== macro.id) }),
       },
-      { text: 'Cancel', style: 'cancel' },
+      { text: t('common.cancel'), style: 'cancel' },
     ]);
   };
 
@@ -119,7 +122,7 @@ const MacrosScreen: React.FC<Props> = ({ navigation }) => {
         onPress={() => run(item)}
         onLongPress={() => showOptions(item)}
         accessibilityRole="button"
-        accessibilityHint="Runs the macro. Long-press to edit or delete."
+        accessibilityHint={t('macros.rowHint')}
         style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
         <View style={styles.tile}>
           <Icon source="lightning-bolt-outline" size={22} color={colors.accentText} />
@@ -151,7 +154,7 @@ const MacrosScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <Text style={styles.subtitle}>
-        {target ? `Runs on ${target.name}` : 'Add a box on the Devices screen first'}
+        {target ? t('macros.runsOn', { name: target.name }) : t('shortcut.addBoxOnDevices')}
       </Text>
 
       {macros.length === 0 ? (
@@ -159,20 +162,18 @@ const MacrosScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.emptyIcon}>
             <Icon source="lightning-bolt-outline" size={36} color={colors.accentText} />
           </View>
-          <Text style={styles.emptyTitle}>Create your first macro</Text>
-          <Text style={styles.emptyBody}>
-            Chain keys into one tap, like going back to the menu or skipping three channels.
-          </Text>
+          <Text style={styles.emptyTitle}>{t('macros.emptyTitle')}</Text>
+          <Text style={styles.emptyBody}>{t('macros.emptyBody')}</Text>
           <Button
             mode="contained"
             onPress={() => setEditing(newMacro())}
             style={styles.primaryButton}
             contentStyle={styles.buttonContent}
             labelStyle={styles.buttonLabel}>
-            New macro
+            {t('macros.new')}
           </Button>
           <Button mode="text" onPress={addStarters} textColor={colors.textSecondary}>
-            Add starter macros
+            {t('macros.addStarters')}
           </Button>
         </View>
       ) : (
@@ -182,9 +183,7 @@ const MacrosScreen: React.FC<Props> = ({ navigation }) => {
           keyExtractor={item => item.id}
           contentContainerStyle={styles.list}
           ItemSeparatorComponent={Separator}
-          ListFooterComponent={
-            <Text style={styles.footnote}>Tap to run · long-press to edit or delete</Text>
-          }
+          ListFooterComponent={<Text style={styles.footnote}>{t('macros.footnote')}</Text>}
         />
       )}
 

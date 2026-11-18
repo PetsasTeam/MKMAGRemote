@@ -18,6 +18,7 @@ import { MAGCommand, MAGDevice, Macro } from '../types';
 import { SPEEDS, Speed, speedOf } from '../services/MacroService';
 import { commandInfo } from '../services/commandInfo';
 import { colors, radius, spacing, type } from '../theme/tokens';
+import { t } from '../i18n';
 import KeyPalette from './KeyPalette';
 
 const MAX_STEPS = 40;
@@ -32,7 +33,11 @@ interface Props {
   onTry: (commands: MAGCommand[], delay: number) => Promise<string>;
 }
 
-const SPEED_LABELS: Record<Speed, string> = { fast: 'Fast', normal: 'Normal', slow: 'Slow' };
+const SPEED_LABELS: Record<Speed, string> = {
+  fast: t('macros.fast'),
+  normal: t('macros.normal'),
+  slow: t('macros.slow'),
+};
 
 const MacroEditor: React.FC<Props> = ({ macro, device, onSave, onClose, onTry }) => {
   const [name, setName] = useState('');
@@ -74,14 +79,14 @@ const MacroEditor: React.FC<Props> = ({ macro, device, onSave, onClose, onTry })
       <View style={styles.sheet}>
         <View style={styles.header}>
           <Pressable onPress={onClose} hitSlop={8}>
-            <Text style={styles.headerAction}>Cancel</Text>
+            <Text style={styles.headerAction}>{t('common.cancel')}</Text>
           </Pressable>
           <Text style={styles.headerTitle}>
-            {macro && macro.commands.length > 0 ? 'Edit macro' : 'New macro'}
+            {macro && macro.commands.length > 0 ? t('macros.edit') : t('macros.new')}
           </Text>
           <Pressable onPress={save} disabled={!canSave} hitSlop={8}>
             <Text style={[styles.headerAction, styles.save, !canSave && styles.disabled]}>
-              Save
+              {t('common.save')}
             </Text>
           </Pressable>
         </View>
@@ -90,14 +95,14 @@ const MacroEditor: React.FC<Props> = ({ macro, device, onSave, onClose, onTry })
           <TextInput
             value={name}
             onChangeText={setName}
-            placeholder="Name, like “Sports channel”"
+            placeholder={t('macros.namePlaceholder')}
             placeholderTextColor={colors.textMuted}
             style={styles.nameInput}
             returnKeyType="done"
             maxLength={40}
           />
 
-          <Text style={styles.sectionLabel}>SPEED</Text>
+          <Text style={styles.sectionLabel}>{t('macros.speed')}</Text>
           <View style={styles.segment}>
             {(Object.keys(SPEEDS) as Speed[]).map(option => (
               <Pressable
@@ -117,19 +122,22 @@ const MacroEditor: React.FC<Props> = ({ macro, device, onSave, onClose, onTry })
             </Text>
             {steps.length > 0 && (
               <Pressable onPress={() => setSteps([])} hitSlop={8}>
-                <Text style={styles.clear}>Clear</Text>
+                <Text style={styles.clear}>{t('macros.clear')}</Text>
               </Pressable>
             )}
           </View>
           <View style={styles.steps}>
             {steps.length === 0 ? (
-              <Text style={styles.hint}>Tap keys below to add steps.</Text>
+              <Text style={styles.hint}>{t('macros.tapKeys')}</Text>
             ) : (
               steps.map((command, i) => (
                 <Pressable
                   key={`${i}-${command}`}
                   onPress={() => setSteps(prev => prev.filter((_, j) => j !== i))}
-                  accessibilityLabel={`Remove step ${i + 1}, ${commandInfo(command).label}`}
+                  accessibilityLabel={t('macros.removeStep', {
+                    index: i + 1,
+                    name: commandInfo(command).label,
+                  })}
                   style={styles.step}>
                   <Text style={styles.stepIndex}>{i + 1}</Text>
                   <Text style={styles.stepText}>{commandInfo(command).label}</Text>
@@ -150,13 +158,13 @@ const MacroEditor: React.FC<Props> = ({ macro, device, onSave, onClose, onTry })
                 ) : (
                   <Icon source="play" size={18} color={colors.accentText} />
                 )}
-                <Text style={styles.tryText}>Try on TV</Text>
+                <Text style={styles.tryText}>{t('macros.tryOnTv')}</Text>
               </Pressable>
               {tryResult !== '' && <Text style={styles.tryResult}>{tryResult}</Text>}
             </View>
           )}
 
-          <Text style={[styles.sectionLabel, styles.keysLabel]}>KEYS</Text>
+          <Text style={[styles.sectionLabel, styles.keysLabel]}>{t('macros.keys')}</Text>
           <KeyPalette
             device={device}
             onPick={command =>

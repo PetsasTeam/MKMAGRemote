@@ -26,6 +26,7 @@ import { commandInfo } from '../services/commandInfo';
 import KeyPalette from '../components/KeyPalette';
 import { tapHaptic } from '../components/remote/RemoteKey';
 import { colors, radius, spacing, type } from '../theme/tokens';
+import { t } from '../i18n';
 
 type QuickActionsScreenNavigationProp = StackNavigationProp<RootStackParamList, 'QuickActions'>;
 
@@ -59,7 +60,7 @@ const QuickActionsScreen: React.FC<Props> = ({ navigation }) => {
         <Pressable
           onPress={() => setAdding('channel')}
           style={styles.headerButton}
-          accessibilityLabel="Add a shortcut"
+          accessibilityLabel={t('quick.add')}
           hitSlop={6}>
           <Icon source="plus" size={22} color={colors.text} />
         </Pressable>
@@ -75,13 +76,13 @@ const QuickActionsScreen: React.FC<Props> = ({ navigation }) => {
     }
     tapHaptic(settings.vibrationEnabled !== false);
     if (!target) {
-      setMessage('Add a box first');
+      setMessage(t('shortcut.addBoxFirst'));
       return;
     }
     setBusyId(action.id);
     try {
       if (!(await ensureConnected())) {
-        setMessage(`Couldn't connect to ${target.name}`);
+        setMessage(t('shortcut.couldntConnect', { name: target.name }));
         return;
       }
       if (isChannel(action)) {
@@ -94,9 +95,9 @@ const QuickActionsScreen: React.FC<Props> = ({ navigation }) => {
       } else {
         const command = action.command as MAGCommand;
         if (!MAGService.isCommandSupported(command)) {
-          setMessage(`This box doesn't support ${commandInfo(command).label}`);
+          setMessage(t('quick.unsupported', { name: commandInfo(command).label }));
         } else if (!(await MAGService.sendCommand(command))) {
-          setMessage("Couldn't reach the box");
+          setMessage(t('shortcut.couldntReach'));
         }
       }
     } finally {
@@ -105,10 +106,10 @@ const QuickActionsScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const remove = (action: QuickAction) => {
-    Alert.alert(`Remove ${action.name}?`, undefined, [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('quick.removeTitle', { name: action.name }), undefined, [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Remove',
+        text: t('common.remove'),
         style: 'destructive',
         onPress: () => save((settings.quickActions ?? []).filter(a => a.id !== action.id)),
       },
@@ -153,7 +154,7 @@ const QuickActionsScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <Text style={styles.subtitle}>
-        {target ? `Sends to ${target.name}` : 'Add a box on the Devices screen first'}
+        {target ? t('quick.sendsTo', { name: target.name }) : t('shortcut.addBoxOnDevices')}
       </Text>
 
       {actions.length === 0 ? (
@@ -161,27 +162,25 @@ const QuickActionsScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.emptyIcon}>
             <Icon source="star-outline" size={36} color={colors.accentText} />
           </View>
-          <Text style={styles.emptyTitle}>Your one-tap shortcuts</Text>
-          <Text style={styles.emptyBody}>
-            Save favourite channels to jump straight to them, or pin keys you use a lot.
-          </Text>
+          <Text style={styles.emptyTitle}>{t('quick.emptyTitle')}</Text>
+          <Text style={styles.emptyBody}>{t('quick.emptyBody')}</Text>
           <Button
             mode="contained"
             onPress={() => setAdding('channel')}
             style={styles.primaryButton}
             contentStyle={styles.buttonContent}
             labelStyle={styles.buttonLabel}>
-            Add a channel
+            {t('quick.addChannel')}
           </Button>
           <Button mode="text" onPress={() => setAdding('key')} textColor={colors.textSecondary}>
-            Pin a key
+            {t('quick.pinKey')}
           </Button>
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
           {channels.length > 0 && (
             <>
-              <Text style={styles.sectionLabel}>CHANNELS</Text>
+              <Text style={styles.sectionLabel}>{t('quick.channels')}</Text>
               <View style={styles.channelGrid}>
                 {channels.map(action => (
                   <Pressable
@@ -189,7 +188,10 @@ const QuickActionsScreen: React.FC<Props> = ({ navigation }) => {
                     onPress={() => run(action)}
                     onLongPress={() => remove(action)}
                     accessibilityRole="button"
-                    accessibilityLabel={`Go to ${action.name}, channel ${action.channel}`}
+                    accessibilityLabel={t('quick.goTo', {
+                      name: action.name,
+                      channel: action.channel ?? '',
+                    })}
                     style={({ pressed }) => [
                       styles.channelCard,
                       (pressed || busyId === action.id) && styles.cardPressed,
@@ -206,7 +208,7 @@ const QuickActionsScreen: React.FC<Props> = ({ navigation }) => {
 
           {keys.length > 0 && (
             <>
-              <Text style={[styles.sectionLabel, styles.sectionGap]}>KEYS</Text>
+              <Text style={[styles.sectionLabel, styles.sectionGap]}>{t('quick.keys')}</Text>
               <View style={styles.keyGrid}>
                 {keys.map(action => {
                   const info = commandInfo(action.command as MAGCommand);
@@ -235,7 +237,7 @@ const QuickActionsScreen: React.FC<Props> = ({ navigation }) => {
             </>
           )}
 
-          <Text style={styles.footnote}>Long-press a shortcut to remove it</Text>
+          <Text style={styles.footnote}>{t('quick.footnote')}</Text>
         </ScrollView>
       )}
 
@@ -247,9 +249,9 @@ const QuickActionsScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.sheet}>
           <View style={styles.sheetHeader}>
             <Pressable onPress={closeAdd} hitSlop={8}>
-              <Text style={styles.sheetAction}>Cancel</Text>
+              <Text style={styles.sheetAction}>{t('common.cancel')}</Text>
             </Pressable>
-            <Text style={styles.sheetTitle}>Add shortcut</Text>
+            <Text style={styles.sheetTitle}>{t('quick.addTitle')}</Text>
             <Pressable
               onPress={addChannel}
               disabled={adding !== 'channel' || !channelValid}
@@ -260,7 +262,7 @@ const QuickActionsScreen: React.FC<Props> = ({ navigation }) => {
                   styles.sheetSave,
                   (adding !== 'channel' || !channelValid) && styles.hidden,
                 ]}>
-                Save
+                {t('common.save')}
               </Text>
             </Pressable>
           </View>
@@ -273,7 +275,7 @@ const QuickActionsScreen: React.FC<Props> = ({ navigation }) => {
                   onPress={() => setAdding(mode)}
                   style={[styles.segmentItem, adding === mode && styles.segmentActive]}>
                   <Text style={[styles.segmentText, adding === mode && styles.segmentTextActive]}>
-                    {mode === 'channel' ? 'Channel' : 'Key'}
+                    {mode === 'channel' ? t('quick.channel') : t('quick.key')}
                   </Text>
                 </Pressable>
               ))}
@@ -284,7 +286,7 @@ const QuickActionsScreen: React.FC<Props> = ({ navigation }) => {
                 <TextInput
                   value={channelName}
                   onChangeText={setChannelName}
-                  placeholder="Name, like “BBC One”"
+                  placeholder={t('quick.namePlaceholder')}
                   placeholderTextColor={colors.textMuted}
                   style={styles.input}
                   maxLength={30}
@@ -293,18 +295,16 @@ const QuickActionsScreen: React.FC<Props> = ({ navigation }) => {
                 <TextInput
                   value={channelNumber}
                   onChangeText={value => setChannelNumber(value.replace(/\D/g, '').slice(0, 5))}
-                  placeholder="Channel number, like 101"
+                  placeholder={t('quick.numberPlaceholder')}
                   placeholderTextColor={colors.textMuted}
                   keyboardType="number-pad"
                   style={styles.input}
                 />
-                <Text style={styles.help}>
-                  Tapping it types the number on the box, then presses OK.
-                </Text>
+                <Text style={styles.help}>{t('quick.channelHelp')}</Text>
               </>
             ) : (
               <>
-                <Text style={styles.help}>Tap a key to pin it.</Text>
+                <Text style={styles.help}>{t('quick.keyHelp')}</Text>
                 <KeyPalette device={target} onPick={pinKey} />
               </>
             )}

@@ -8,6 +8,7 @@ import { Icon } from 'react-native-paper';
 import { MAGCommand, MAGDevice } from '../types';
 import MAGService from '../services/MAGService';
 import { PALETTE, commandInfo } from '../services/commandInfo';
+import { t } from '../i18n';
 import { colors, radius, spacing } from '../theme/tokens';
 import { tapHaptic } from './remote/RemoteKey';
 
@@ -38,7 +39,7 @@ const KeyPalette: React.FC<Props> = ({ device, onPick }) => {
               onPick(command);
             }}
             accessibilityRole="button"
-            accessibilityLabel={`Add ${info.label}`}
+            accessibilityLabel={t('key.add', { name: info.label })}
             style={({ pressed }) => [styles.key, pressed && styles.keyPressed]}>
             {/^[0-9]$/.test(info.label) ? (
               <Text style={styles.digit}>{info.label}</Text>

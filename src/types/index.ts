@@ -1,5 +1,5 @@
 /**
- * Type definitions for MAG Remote
+ * Type definitions for BoxPilot
  */
 
 export interface MAGDevice {
@@ -17,11 +17,14 @@ export interface MAGDevice {
    * Which remote protocol the box speaks: 'magic' (MAGic Remote, TCP 40611,
    * pairing code; the default) or 'aurahd' (AuraHD Remote, UDP, password).
    */
-  protocol?: 'magic' | 'aurahd';
+  protocol?: 'magic' | 'aurahd' | 'demo';
   /** AuraHD only: the Remote control password set on the box. */
   password?: string;
   /** AuraHD only: the box's serial number, from discovery. */
   serial?: string;
+  /** AuraHD only: the TV screen size the box reports, for the touchpad. */
+  screenWidth?: number;
+  screenHeight?: number;
 }
 
 export interface RemoteKey {
@@ -157,6 +160,10 @@ export interface AppSettings {
   quickActions: QuickAction[];
   appShortcuts: AppShortcut[];
   favorites: MAGCommand[];
+  /** The first-run guide has been seen. */
+  onboardingDone?: boolean;
+  /** Phone volume buttons change the TV volume while the remote is open. */
+  volumeButtons?: boolean;
 }
 
 export interface DiscoveryResult {

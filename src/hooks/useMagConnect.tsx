@@ -10,15 +10,7 @@ import PasswordDialog from '../components/PasswordDialog';
 import { useDevice } from '../context/DeviceContext';
 import MAGService from '../services/MAGService';
 import { MAGDevice } from '../types';
-
-const UNREACHABLE_HELP =
-  'Could not reach the MAG box. Please check:\n\n' +
-  '1. The box is switched on (not in deep standby)\n' +
-  '2. Your phone and the box are on the same Wi-Fi network\n' +
-  '3. Settings → System settings → Remote control is enabled on the box\n' +
-  '4. The IP address is correct';
-
-const WRONG_PASSWORD = "The box didn't accept that password. Check it under Settings → System settings → Remote control.";
+import { t } from '../i18n';
 
 export function useMagConnect(onConnected: (device: MAGDevice) => void) {
   const { addSavedDevice, setCurrentDevice } = useDevice();
@@ -42,26 +34,27 @@ export function useMagConnect(onConnected: (device: MAGDevice) => void) {
       setCurrentDevice(device);
       onConnected(device);
     } else if (result === 'rejected' && device.protocol === 'aurahd') {
-      askPassword(device, WRONG_PASSWORD);
+      askPassword(device, t('connect.wrongPassword'));
     } else if (result === 'rejected') {
-      Alert.alert(
-        'Pair again',
-        'The box did not accept this phone. This happens if the pairing was reset on the box. Pair again?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Pair', onPress: () => setPairingDevice({ ...device, pairingCode: undefined }) },
-        ],
-      );
+      Alert.alert(t('connect.pairAgainTitle'), t('connect.pairAgainBody'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('connect.pair'),
+          onPress: () => setPairingDevice({ ...device, pairingCode: undefined }),
+        },
+      ]);
     } else {
-      Alert.alert('Connection Failed', UNREACHABLE_HELP, [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Retry', onPress: () => openSession(device) },
+      Alert.alert(t('connect.failedTitle'), t('connect.unreachable'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.retry'), onPress: () => openSession(device) },
       ]);
     }
   };
 
   const connect = (device: MAGDevice) => {
-    if (device.protocol === 'aurahd') {
+    if (device.protocol === 'demo') {
+      openSession(device);
+    } else if (device.protocol === 'aurahd') {
       if (device.password !== undefined) {
         openSession(device);
       } else {

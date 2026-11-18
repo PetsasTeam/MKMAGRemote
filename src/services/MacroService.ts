@@ -6,6 +6,7 @@
 import { Macro, MAGCommand } from '../types';
 import MAGService from './MAGService';
 import { commandInfo, digitCommand } from './commandInfo';
+import { t } from '../i18n';
 
 export interface RunResult {
   /** Keys sent to the box. */
@@ -46,16 +47,18 @@ export function channelCommands(channel: string): MAGCommand[] {
 export function describeResult(result: RunResult): string {
   if (result.failed) {
     return result.sent === 0
-      ? "Couldn't reach the box"
-      : `Stopped after ${result.sent} step${result.sent === 1 ? '' : 's'}: lost the box`;
+      ? t('macros.resultUnreachable')
+      : result.sent === 1
+        ? t('macros.resultStoppedOne')
+        : t('macros.resultStopped', { count: result.sent });
   }
   if (result.skipped.length > 0) {
     const names = [...new Set(result.skipped.map(c => commandInfo(c).label))].join(', ');
     return result.sent === 0
-      ? `Nothing sent: this box doesn't support ${names}`
-      : `Done, skipped ${names} (not supported by this box)`;
+      ? t('macros.resultNothing', { names })
+      : t('macros.resultSkipped', { names });
   }
-  return 'Done';
+  return t('macros.resultDone');
 }
 
 const wait = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
@@ -123,28 +126,28 @@ class MacroService {
     return [
       {
         id: 'starter-volume-up',
-        name: 'Volume up 3',
+        name: t('macros.starterVolUp'),
         icon: 'volume-plus',
         commands: [MAGCommand.VOL_UP, MAGCommand.VOL_UP, MAGCommand.VOL_UP],
         delay: SPEEDS.fast,
       },
       {
         id: 'starter-volume-down',
-        name: 'Volume down 3',
+        name: t('macros.starterVolDown'),
         icon: 'volume-minus',
         commands: [MAGCommand.VOL_DOWN, MAGCommand.VOL_DOWN, MAGCommand.VOL_DOWN],
         delay: SPEEDS.fast,
       },
       {
         id: 'starter-channels-up',
-        name: 'Skip 3 channels',
+        name: t('macros.starterSkip'),
         icon: 'chevron-double-up',
         commands: [MAGCommand.CH_UP, MAGCommand.CH_UP, MAGCommand.CH_UP],
         delay: SPEEDS.normal,
       },
       {
         id: 'starter-back-out',
-        name: 'Back out to menu',
+        name: t('macros.starterMenu'),
         icon: 'home-outline',
         commands: [MAGCommand.BACK, MAGCommand.BACK, MAGCommand.BACK, MAGCommand.MENU],
         delay: SPEEDS.normal,

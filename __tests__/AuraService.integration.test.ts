@@ -113,7 +113,14 @@ describe('AuraService with a fake box', () => {
 
   it('discovers the box and its command port', async () => {
     const found = await discoverAuraBoxes([HOST], 300);
-    expect(found.get(HOST)).toEqual({ name: 'Test box', type: 'MAG424', serialNumber: 'SN1', port: commandPort });
+    expect(found.get(HOST)).toEqual({
+      name: 'Test box',
+      type: 'MAG424',
+      serialNumber: 'SN1',
+      port: commandPort,
+      screenWidth: 1280,
+      screenHeight: 720,
+    });
   });
 
   it('reports a wrong password as rejected', async () => {
@@ -144,6 +151,35 @@ describe('AuraService with a fake box', () => {
       ['release', 73],
     ]);
     expect(await AuraService.sendCommand(MAGCommand.POWER)).toBe(false);
+    AuraService.disconnect();
+  });
+
+  it('types a login in order, with Shift for capitals and symbols', async () => {
+    await expect(AuraService.connect(device(BOX_PASSWORD))).resolves.toBe('ok');
+    const text = 'Me@x.io 9!';
+    // Characters typed quickly one after another, as live typing sends them.
+    const sends = [...text].map(c => AuraService.sendText(c));
+    await expect(Promise.all(sends)).resolves.toEqual([...text].map(() => true));
+    await waitFor(
+      () => received.filter(m => m.msgType === 'keyboardKey').length === text.length * 2,
+    );
+
+    const presses = received.filter(m => m.msgType === 'keyboardKey' && m.action === 'press');
+    expect(presses.map(p => String.fromCodePoint(p.unicode as number)).join('')).toBe(text);
+    const shifted = presses
+      .filter(p => p.metaState === 33554432)
+      .map(p => String.fromCodePoint(p.unicode as number));
+    expect(shifted).toEqual(['M', '@', '!']);
+
+    // Pointer moves stay on screen and clicks arrive as press + release.
+    await expect(AuraService.moveMouse(-5000, 99999)).resolves.toBe(true);
+    await expect(AuraService.click()).resolves.toBe(true);
+    await waitFor(() => received.some(m => m.msgType === 'mouseClick' && m.action === 'release'));
+    expect(received.find(m => m.msgType === 'mouseMove')).toEqual({
+      msgType: 'mouseMove',
+      x: 0,
+      y: 719,
+    });
     AuraService.disconnect();
   });
 });

@@ -59,10 +59,16 @@ describe('AuraHD encryption', () => {
 
   it('recognises the box ping reply', () => {
     expect(nodeDecrypt(PASSWORD, pingRequest(PASSWORD))).toBe('{"msgType":"pingRequest"}');
-    expect(isPingResponse(PASSWORD, nodeEncrypt(PASSWORD, '{"msgType":"pingResponse"}'))).toBe(true);
+    expect(isPingResponse(PASSWORD, nodeEncrypt(PASSWORD, '{"msgType":"pingResponse"}'))).toBe(
+      true,
+    );
     // The iOS AuraHD app pretty-prints its JSON; the box's replies may too.
-    expect(isPingResponse(PASSWORD, nodeEncrypt(PASSWORD, '{\n  "msgType" : "pingResponse"\n}'))).toBe(true);
-    expect(isPingResponse('000000', nodeEncrypt(PASSWORD, '{"msgType":"pingResponse"}'))).toBe(false);
+    expect(
+      isPingResponse(PASSWORD, nodeEncrypt(PASSWORD, '{\n  "msgType" : "pingResponse"\n}')),
+    ).toBe(true);
+    expect(isPingResponse('000000', nodeEncrypt(PASSWORD, '{"msgType":"pingResponse"}'))).toBe(
+      false,
+    );
   });
 });
 
@@ -103,7 +109,9 @@ describe('AuraHD buttons', () => {
     expect(charKeycode(' ')).toBe(32);
     expect(charKeycode('é')).toBe(0);
     const [press] = charMessages(PASSWORD, 'q').map(m => JSON.parse(nodeDecrypt(PASSWORD, m)));
-    expect(press).toMatchObject({ action: 'press', keycode: 81, unicode: 113, characters: 'q' });
+    expect(press).toMatchObject({ action: 'press', keycode: 81, unicode: 113, metaState: 0 });
+    // Like the AuraHD app, typed characters carry no "characters" field.
+    expect(press).not.toHaveProperty('characters');
   });
 });
 
@@ -123,14 +131,21 @@ describe('AuraHD discovery', () => {
         deviceFamily: 'stbapp',
         type: 'MAG424',
         serialNumber: 'SN123',
-        screenHeight: 720,
-        screenWidth: 1280,
+        screenHeight: 1080,
+        screenWidth: 1920,
         port: 7666,
         protocolVersion: '1.0',
         modes: ['MOUSE', 'KEYBOARD'],
       }),
     );
-    expect(parseInfo(reply)).toEqual({ name: 'Living room', type: 'MAG424', serialNumber: 'SN123', port: 7666 });
+    expect(parseInfo(reply)).toEqual({
+      name: 'Living room',
+      type: 'MAG424',
+      serialNumber: 'SN123',
+      port: 7666,
+      screenWidth: 1920,
+      screenHeight: 1080,
+    });
   });
 
   it('ignores anything that is not an info reply', () => {

@@ -34,7 +34,7 @@ import {
 export type ConnectResult = 'ok' | 'unreachable' | 'rejected';
 
 const DEVICE_ID_KEY = 'mag_remote_device_id';
-const DEVICE_DESCRIPTION = 'MAG Remote';
+const DEVICE_DESCRIPTION = 'BoxPilot';
 const REPLY_TIMEOUT_MS = 4000;
 const KEEP_ALIVE_MS = 15000;
 const TEXT_CHAR_DELAY_MS = 40;
@@ -152,6 +152,11 @@ class MAGService {
   /** Connect to a paired device (or, for AuraHD boxes, one with a password). */
   async connect(device: MAGDevice): Promise<ConnectResult> {
     this.disconnect();
+    if (device.protocol === 'demo') {
+      // A pretend box for trying the app (and for App Review) without hardware.
+      this.currentDevice = device;
+      return 'ok';
+    }
     if (device.protocol === 'aurahd') {
       const result = await AuraService.connect(device);
       if (result === 'ok') {
@@ -265,13 +270,37 @@ class MAGService {
 
   /** Whether `device` (MAGic Remote by default) can receive `command`, connected or not. */
   isCommandSupportedFor(device: MAGDevice | null, command: MAGCommand): boolean {
-    return device?.protocol === 'aurahd'
+    return device?.protocol === 'aurahd' || device?.protocol === 'demo'
       ? isAuraCommandSupported(command)
       : isCommandSupported(command);
   }
 
+  private isDemo(): boolean {
+    return this.currentDevice?.protocol === 'demo';
+  }
+
+  /** The touchpad (pointer) works on AuraHD boxes, which accept mouse input. */
+  supportsTouchpad(): boolean {
+    return this.isAura() || this.isDemo();
+  }
+
+  moveMouse(dx: number, dy: number): Promise<boolean> {
+    return this.isAura() ? AuraService.moveMouse(dx, dy) : Promise.resolve(this.isDemo());
+  }
+
+  click(): Promise<boolean> {
+    return this.isAura() ? AuraService.click() : Promise.resolve(this.isDemo());
+  }
+
+  scroll(value: number): Promise<boolean> {
+    return this.isAura() ? AuraService.scroll(value) : Promise.resolve(this.isDemo());
+  }
+
   /** Send a remote button. Returns false if it failed or the button has no MAG code. */
   async sendCommand(command: MAGCommand): Promise<boolean> {
+    if (this.isDemo()) {
+      return this.isCommandSupported(command);
+    }
     if (this.isAura()) {
       return AuraService.sendCommand(command);
     }
@@ -301,6 +330,9 @@ class MAGService {
   /** Type text into the focused field on the TV (search boxes, URLs, logins). */
   async sendText(text: string): Promise<boolean> {
     if (!text) {
+      return true;
+    }
+    if (this.isDemo()) {
       return true;
     }
     if (this.isAura()) {

@@ -1,22 +1,25 @@
 /**
- * Settings Screen
- * App settings and preferences
+ * Settings: remote preferences, purchase status, help and about.
  */
-
 import React from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
 import {
-  List,
+  Alert,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
   Switch,
-  Divider,
-  Title,
-  useTheme,
-  Button,
-  Card,
-} from 'react-native-paper';
+  Text,
+  View,
+} from 'react-native';
+import { Icon } from 'react-native-paper';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../App';
 import { useDevice } from '../context/DeviceContext';
+import { useEntitlement } from '../context/EntitlementContext';
+import { APP_VERSION, SUPPORT_EMAIL } from '../config';
+import { colors, radius, spacing, type } from '../theme/tokens';
+import { language, t } from '../i18n';
 
 type SettingsScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Settings'>;
 
@@ -24,120 +27,144 @@ interface Props {
   navigation: SettingsScreenNavigationProp;
 }
 
+interface RowProps {
+  icon: string;
+  title: string;
+  subtitle?: string;
+  value?: string;
+  onPress?: () => void;
+  toggle?: { value: boolean; onChange: (value: boolean) => void };
+  last?: boolean;
+}
+
+const Row: React.FC<RowProps> = ({ icon, title, subtitle, value, onPress, toggle, last }) => (
+  <Pressable
+    onPress={toggle ? () => toggle.onChange(!toggle.value) : onPress}
+    disabled={!onPress && !toggle}
+    accessibilityRole={toggle ? 'switch' : onPress ? 'button' : undefined}
+    accessibilityState={toggle ? { checked: toggle.value } : undefined}
+    style={({ pressed }) => [styles.row, pressed && (onPress || toggle) && styles.rowPressed]}>
+    <View style={styles.rowIcon}>
+      <Icon source={icon} size={18} color={colors.accentText} />
+    </View>
+    <View style={[styles.rowBody, !last && styles.rowDivider]}>
+      <View style={styles.rowText}>
+        <Text style={styles.rowTitle}>{title}</Text>
+        {subtitle ? <Text style={styles.rowSubtitle}>{subtitle}</Text> : null}
+      </View>
+      {value ? <Text style={styles.rowValue}>{value}</Text> : null}
+      {toggle ? (
+        <Switch
+          value={toggle.value}
+          onValueChange={toggle.onChange}
+          trackColor={{ true: colors.accent, false: colors.control }}
+        />
+      ) : onPress ? (
+        <Icon source="chevron-right" size={20} color={colors.textMuted} />
+      ) : null}
+    </View>
+  </Pressable>
+);
+
+const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
+  <View style={styles.section}>
+    <Text style={styles.sectionLabel}>{title}</Text>
+    <View style={styles.card}>{children}</View>
+  </View>
+);
+
 const SettingsScreen: React.FC<Props> = ({ navigation }) => {
-  const theme = useTheme();
   const { settings, updateSettings, savedDevices } = useDevice();
+  const { entitlement, restore } = useEntitlement();
 
-  const handleToggleVibration = () => {
-    updateSettings({ vibrationEnabled: !settings.vibrationEnabled });
-  };
+  const trialEnds =
+    entitlement.status === 'trial'
+      ? new Date(entitlement.endsAt).toLocaleString(language() === 'el' ? 'el-GR' : undefined, {
+          weekday: 'short',
+          hour: 'numeric',
+          minute: '2-digit',
+        })
+      : '';
 
-  const handleToggleSound = () => {
-    updateSettings({ soundEnabled: !settings.soundEnabled });
-  };
-
-  const handleToggleAutoConnect = () => {
-    updateSettings({ autoConnect: !settings.autoConnect });
+  const onRestore = async () => {
+    const found = await restore();
+    Alert.alert(found ? t('settings.restored') : t('settings.nothingToRestore'));
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Card style={styles.section}>
-        <Card.Content>
-          <Title>App Settings</Title>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Section title={t('settings.remote')}>
+        <Row
+          icon="vibrate"
+          title={t('settings.haptics')}
+          toggle={{
+            value: settings.vibrationEnabled !== false,
+            onChange: value => updateSettings({ vibrationEnabled: value }),
+          }}
+        />
+        <Row
+          icon="volume-high"
+          title={t('settings.volumeButtons')}
+          subtitle={t('settings.volumeButtonsHint')}
+          toggle={{
+            value: settings.volumeButtons !== false,
+            onChange: value => updateSettings({ volumeButtons: value }),
+          }}
+          last
+        />
+      </Section>
 
-          <List.Item
-            title="Vibration Feedback"
-            description="Vibrate when buttons are pressed"
-            left={(props) => <List.Icon {...props} icon="vibrate" />}
-            right={() => (
-              <Switch value={settings.vibrationEnabled} onValueChange={handleToggleVibration} />
-            )}
+      <Section title={t('settings.purchase')}>
+        {entitlement.status === 'unlocked' ? (
+          <Row
+            icon="check-decagram"
+            title={t('settings.unlocked')}
+            subtitle={t('settings.unlockedHint')}
           />
-
-          <Divider />
-
-          <List.Item
-            title="Sound Feedback"
-            description="Play sound when buttons are pressed"
-            left={(props) => <List.Icon {...props} icon="volume-high" />}
-            right={() => (
-              <Switch value={settings.soundEnabled} onValueChange={handleToggleSound} />
-            )}
+        ) : entitlement.status === 'trial' ? (
+          <Row
+            icon="timer-sand"
+            title={t('settings.trial')}
+            subtitle={t('settings.trialHint', { when: trialEnds })}
           />
+        ) : null}
+        <Row icon="restore" title={t('settings.restore')} onPress={onRestore} last />
+      </Section>
 
-          <Divider />
-
-          <List.Item
-            title="Auto Connect"
-            description="Automatically connect to last device"
-            left={(props) => <List.Icon {...props} icon="connection" />}
-            right={() => (
-              <Switch value={settings.autoConnect} onValueChange={handleToggleAutoConnect} />
-            )}
+      <Section title={t('settings.help')}>
+        <Row
+          icon="book-open-outline"
+          title={t('settings.guide')}
+          onPress={() => navigation.navigate('Guide')}
+        />
+        {SUPPORT_EMAIL !== '' && (
+          <Row
+            icon="email-outline"
+            title={t('settings.support')}
+            onPress={() =>
+              Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('BoxPilot')}`)
+            }
           />
-        </Card.Content>
-      </Card>
+        )}
+        <Row
+          icon="shield-lock-outline"
+          title={t('settings.privacy')}
+          onPress={() => navigation.navigate('Privacy')}
+          last
+        />
+      </Section>
 
-      <Card style={styles.section}>
-        <Card.Content>
-          <Title>Device Information</Title>
+      <Section title={t('settings.about')}>
+        <Row icon="information-outline" title={t('settings.version')} value={APP_VERSION} />
+        <Row
+          icon="television"
+          title={t('settings.boxes')}
+          value={String(savedDevices.length)}
+          last
+        />
+      </Section>
 
-          <List.Item
-            title="Saved Devices"
-            description={`${savedDevices.length} device(s) saved`}
-            left={(props) => <List.Icon {...props} icon="devices" />}
-          />
-
-          {settings.lastDevice && (
-            <>
-              <Divider />
-              <List.Item
-                title="Last Connected"
-                description={`${settings.lastDevice.name} (${settings.lastDevice.ip})`}
-                left={(props) => <List.Icon {...props} icon="history" />}
-              />
-            </>
-          )}
-        </Card.Content>
-      </Card>
-
-      <Card style={styles.section}>
-        <Card.Content>
-          <Title>About</Title>
-
-          <List.Item
-            title="Version"
-            description="1.0.0"
-            left={(props) => <List.Icon {...props} icon="information" />}
-          />
-
-          <Divider />
-
-          <List.Item
-            title="Support"
-            description="Report issues on GitHub"
-            left={(props) => <List.Icon {...props} icon="help-circle" />}
-          />
-
-          <Divider />
-
-          <List.Item
-            title="License"
-            description="MIT License"
-            left={(props) => <List.Icon {...props} icon="file-document" />}
-          />
-        </Card.Content>
-      </Card>
-
-      <View style={styles.footer}>
-        <Button
-          mode="text"
-          onPress={() => navigation.navigate('Home')}
-          icon="home">
-          Back to Home
-        </Button>
-      </View>
+      <Text style={styles.disclaimer}>{t('settings.disclaimer')}</Text>
     </ScrollView>
   );
 };
@@ -145,14 +172,76 @@ const SettingsScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background,
+  },
+  content: {
+    padding: spacing.lg,
+    paddingBottom: spacing.xxl * 2,
   },
   section: {
-    margin: 16,
-    marginBottom: 0,
+    marginBottom: spacing.xl,
   },
-  footer: {
-    padding: 20,
+  sectionLabel: {
+    ...type.label,
+    fontWeight: '600',
+    marginHorizontal: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+  },
+  row: {
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingLeft: spacing.md,
+  },
+  rowPressed: {
+    backgroundColor: colors.control,
+  },
+  rowIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.sm,
+    backgroundColor: colors.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  rowBody: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    paddingRight: spacing.md,
+    minHeight: 52,
+  },
+  rowDivider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  rowText: {
+    flex: 1,
+  },
+  rowTitle: {
+    ...type.body,
+  },
+  rowSubtitle: {
+    ...type.caption,
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  rowValue: {
+    color: colors.textSecondary,
+    fontSize: 15,
+  },
+  disclaimer: {
+    ...type.caption,
+    textAlign: 'center',
+    lineHeight: 17,
+    paddingHorizontal: spacing.lg,
   },
 });
 

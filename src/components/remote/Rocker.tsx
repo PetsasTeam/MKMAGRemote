@@ -10,6 +10,8 @@ import RemoteKey from './RemoteKey';
 
 interface Props {
   label: string;
+  upLabel: string;
+  downLabel: string;
   upIcon: string;
   downIcon: string;
   onUp: () => void;
@@ -21,6 +23,8 @@ interface Props {
 
 const Rocker: React.FC<Props> = ({
   label,
+  upLabel,
+  downLabel,
   upIcon,
   downIcon,
   onUp,
@@ -35,7 +39,7 @@ const Rocker: React.FC<Props> = ({
       repeat
       dimmed={upDimmed}
       haptics={haptics}
-      accessibilityLabel={`${label} up`}
+      accessibilityLabel={upLabel}
       style={[styles.half, styles.top]}>
       <Icon source={upIcon} size={24} color={colors.text} />
     </RemoteKey>
@@ -45,7 +49,7 @@ const Rocker: React.FC<Props> = ({
       repeat
       dimmed={downDimmed}
       haptics={haptics}
-      accessibilityLabel={`${label} down`}
+      accessibilityLabel={downLabel}
       style={[styles.half, styles.bottom]}>
       <Icon source={downIcon} size={24} color={colors.text} />
     </RemoteKey>

@@ -3,47 +3,49 @@
  * (macro steps, key palette, pinned keys).
  */
 import { MAGCommand } from '../types';
+import { TranslationKey, t } from '../i18n';
 
 export interface CommandInfo {
   label: string;
   icon: string;
 }
 
-const INFO: Partial<Record<MAGCommand, CommandInfo>> = {
-  [MAGCommand.UP]: { label: 'Up', icon: 'chevron-up' },
-  [MAGCommand.DOWN]: { label: 'Down', icon: 'chevron-down' },
-  [MAGCommand.LEFT]: { label: 'Left', icon: 'chevron-left' },
-  [MAGCommand.RIGHT]: { label: 'Right', icon: 'chevron-right' },
-  [MAGCommand.OK]: { label: 'OK', icon: 'circle-medium' },
-  [MAGCommand.BACK]: { label: 'Back', icon: 'arrow-u-left-top' },
-  [MAGCommand.EXIT]: { label: 'Exit', icon: 'close' },
-  [MAGCommand.MENU]: { label: 'Menu', icon: 'home-outline' },
-  [MAGCommand.INFO]: { label: 'Info', icon: 'information-outline' },
-  [MAGCommand.VOL_UP]: { label: 'Vol +', icon: 'volume-plus' },
-  [MAGCommand.VOL_DOWN]: { label: 'Vol −', icon: 'volume-minus' },
-  [MAGCommand.MUTE]: { label: 'Mute', icon: 'volume-off' },
-  [MAGCommand.CH_UP]: { label: 'Ch +', icon: 'chevron-double-up' },
-  [MAGCommand.CH_DOWN]: { label: 'Ch −', icon: 'chevron-double-down' },
-  [MAGCommand.PLAY]: { label: 'Play/Pause', icon: 'play-pause' },
-  [MAGCommand.PAUSE]: { label: 'Pause', icon: 'pause' },
-  [MAGCommand.STOP]: { label: 'Stop', icon: 'stop' },
-  [MAGCommand.REWIND]: { label: 'Rewind', icon: 'rewind' },
-  [MAGCommand.FORWARD]: { label: 'Forward', icon: 'fast-forward' },
-  [MAGCommand.PREV]: { label: 'Previous', icon: 'skip-previous' },
-  [MAGCommand.NEXT]: { label: 'Next', icon: 'skip-next' },
-  [MAGCommand.REC]: { label: 'Record', icon: 'record-circle-outline' },
-  [MAGCommand.RED]: { label: 'Red', icon: 'circle' },
-  [MAGCommand.GREEN]: { label: 'Green', icon: 'circle' },
-  [MAGCommand.YELLOW]: { label: 'Yellow', icon: 'circle' },
-  [MAGCommand.BLUE]: { label: 'Blue', icon: 'circle' },
-  [MAGCommand.POWER]: { label: 'Power', icon: 'power' },
-  [MAGCommand.TV_RADIO]: { label: 'TV', icon: 'television' },
-  [MAGCommand.SETTINGS]: { label: 'Settings', icon: 'cog-outline' },
-  [MAGCommand.FAV]: { label: 'Favourites', icon: 'star-outline' },
-  [MAGCommand.PORTAL]: { label: 'Portal', icon: 'web' },
-  [MAGCommand.USB]: { label: 'USB', icon: 'usb' },
-  [MAGCommand.AUDIO]: { label: 'Audio', icon: 'music-note' },
-  [MAGCommand.SUBTITLE]: { label: 'Subtitles', icon: 'subtitles-outline' },
+/** Labels here are translation keys; commandInfo() returns them translated. */
+const INFO: Partial<Record<MAGCommand, { label: TranslationKey; icon: string }>> = {
+  [MAGCommand.UP]: { label: 'key.up', icon: 'chevron-up' },
+  [MAGCommand.DOWN]: { label: 'key.down', icon: 'chevron-down' },
+  [MAGCommand.LEFT]: { label: 'key.left', icon: 'chevron-left' },
+  [MAGCommand.RIGHT]: { label: 'key.right', icon: 'chevron-right' },
+  [MAGCommand.OK]: { label: 'key.ok', icon: 'circle-medium' },
+  [MAGCommand.BACK]: { label: 'key.back', icon: 'arrow-u-left-top' },
+  [MAGCommand.EXIT]: { label: 'key.exit', icon: 'close' },
+  [MAGCommand.MENU]: { label: 'key.menu', icon: 'home-outline' },
+  [MAGCommand.INFO]: { label: 'key.info', icon: 'information-outline' },
+  [MAGCommand.VOL_UP]: { label: 'key.volUp', icon: 'volume-plus' },
+  [MAGCommand.VOL_DOWN]: { label: 'key.volDown', icon: 'volume-minus' },
+  [MAGCommand.MUTE]: { label: 'key.mute', icon: 'volume-off' },
+  [MAGCommand.CH_UP]: { label: 'key.chUp', icon: 'chevron-double-up' },
+  [MAGCommand.CH_DOWN]: { label: 'key.chDown', icon: 'chevron-double-down' },
+  [MAGCommand.PLAY]: { label: 'key.play', icon: 'play-pause' },
+  [MAGCommand.PAUSE]: { label: 'key.pause', icon: 'pause' },
+  [MAGCommand.STOP]: { label: 'key.stop', icon: 'stop' },
+  [MAGCommand.REWIND]: { label: 'key.rewind', icon: 'rewind' },
+  [MAGCommand.FORWARD]: { label: 'key.forward', icon: 'fast-forward' },
+  [MAGCommand.PREV]: { label: 'key.prev', icon: 'skip-previous' },
+  [MAGCommand.NEXT]: { label: 'key.next', icon: 'skip-next' },
+  [MAGCommand.REC]: { label: 'key.rec', icon: 'record-circle-outline' },
+  [MAGCommand.RED]: { label: 'key.red', icon: 'circle' },
+  [MAGCommand.GREEN]: { label: 'key.green', icon: 'circle' },
+  [MAGCommand.YELLOW]: { label: 'key.yellow', icon: 'circle' },
+  [MAGCommand.BLUE]: { label: 'key.blue', icon: 'circle' },
+  [MAGCommand.POWER]: { label: 'key.power', icon: 'power' },
+  [MAGCommand.TV_RADIO]: { label: 'key.tv', icon: 'television' },
+  [MAGCommand.SETTINGS]: { label: 'key.settings', icon: 'cog-outline' },
+  [MAGCommand.FAV]: { label: 'key.fav', icon: 'star-outline' },
+  [MAGCommand.PORTAL]: { label: 'key.portal', icon: 'web' },
+  [MAGCommand.USB]: { label: 'key.usb', icon: 'usb' },
+  [MAGCommand.AUDIO]: { label: 'key.audio', icon: 'music-note' },
+  [MAGCommand.SUBTITLE]: { label: 'key.subtitles', icon: 'subtitles-outline' },
 };
 
 const DIGITS = [
@@ -64,7 +66,10 @@ export function commandInfo(command: MAGCommand): CommandInfo {
   if (digit >= 0) {
     return { label: String(digit), icon: `numeric-${digit}` };
   }
-  return INFO[command] ?? { label: 'Key', icon: 'gesture-tap' };
+  const info = INFO[command];
+  return info
+    ? { label: t(info.label), icon: info.icon }
+    : { label: t('key.key'), icon: 'gesture-tap' };
 }
 
 /** The command for a digit character, or undefined if it isn't 0-9. */

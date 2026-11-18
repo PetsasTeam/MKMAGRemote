@@ -1,5 +1,5 @@
 /**
- * Design tokens for MAG Remote: a dark, quiet palette with one blue accent.
+ * Design tokens for BoxPilot: a dark, quiet palette with one blue accent.
  * Screens and components read colours, radii and spacing from here.
  */
 export const colors = {

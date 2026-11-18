@@ -187,7 +187,7 @@ MKMAGRemote/
 
 ## License
 
-By contributing to IPTV MK Remote, you agree that your contributions will be licensed under the MIT License.
+By contributing to BoxPilot, you agree that PetsasTeam owns the rights to your contributions (see [LICENSE](LICENSE)).
 
 ## Recognition
 

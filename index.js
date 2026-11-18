@@ -1,5 +1,5 @@
 /**
- * MAG Remote - Entry Point
+ * BoxPilot - Entry Point
  * @format
  */
 

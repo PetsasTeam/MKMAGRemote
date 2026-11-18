@@ -157,8 +157,9 @@ function keyEvent(
   password: string,
   action: 'press' | 'release',
   key: AuraKey,
-  characters = '',
+  characters?: string,
 ): Uint8Array {
+  // Buttons carry characters: "" like the AuraHD app; typed text leaves it out.
   return auraEncrypt(
     password,
     JSON.stringify({
@@ -167,7 +168,7 @@ function keyEvent(
       keycode: key.keycode,
       unicode: key.unicode,
       metaState: key.metaState,
-      characters,
+      ...(characters === undefined ? {} : { characters }),
     }),
   );
 }
@@ -175,32 +176,68 @@ function keyEvent(
 /** Press + release messages for a remote button, or [] if it has no AuraHD key. */
 export function buttonMessages(password: string, command: MAGCommand): Uint8Array[] {
   const key = AURA_KEYS[command];
-  return key ? [keyEvent(password, 'press', key), keyEvent(password, 'release', key)] : [];
+  return key ? [keyEvent(password, 'press', key, ''), keyEvent(password, 'release', key, '')] : [];
 }
 
+const SHIFT = 33554432;
+const SHIFTED_SYMBOLS = '~!@#$%^&*()_+{}|:"<>?';
+const ENTER: AuraKey = { keycode: 16777220, unicode: 13, metaState: 0 };
+
 /**
- * Qt keycode for a typed character, from the AuraHD app's unicode->keycode
- * table: letters use their upper-case code, digits and common punctuation
- * their own code. Other characters are sent by unicode alone (keycode 0).
+ * The key event the AuraHD app sends for a typed character: letters use the
+ * upper-case Qt key code, other printable ASCII its own code, and anything
+ * else (accents, Greek, emoji) travels by unicode alone. Capitals and shifted
+ * symbols carry the Shift modifier, as a hardware keyboard would.
  */
-export function charKeycode(char: string): number {
+export function charKey(char: string): AuraKey {
+  if (char === '\n') {
+    return ENTER;
+  }
   const code = char.codePointAt(0) ?? 0;
+  let keycode = 0;
   if (/^[a-z]$/.test(char)) {
-    return code - 32;
+    keycode = code - 32;
+  } else if (code >= 32 && code <= 126) {
+    keycode = code;
   }
-  if (/^[A-Z0-9]$/.test(char) || ",./;'[]\\-=*+".includes(char)) {
-    return code;
-  }
-  if (char === ' ') {
-    return 32;
-  }
-  return 0;
+  const shifted = /^[A-Z]$/.test(char) || SHIFTED_SYMBOLS.includes(char);
+  return { keycode, unicode: code, metaState: shifted ? SHIFT : 0 };
+}
+
+/** Kept for callers that only need the key code. */
+export function charKeycode(char: string): number {
+  return charKey(char).keycode;
 }
 
 /** Press + release messages that type one character. */
 export function charMessages(password: string, char: string): Uint8Array[] {
-  const key = { keycode: charKeycode(char), unicode: char.codePointAt(0) ?? 0, metaState: 0 };
-  return [keyEvent(password, 'press', key, char), keyEvent(password, 'release', key, char)];
+  const key = charKey(char);
+  return [keyEvent(password, 'press', key), keyEvent(password, 'release', key)];
+}
+
+// ------------------------------------------------------------------- mouse
+
+/** Pointer move. Linux MAG boxes take absolute screen coordinates. */
+export function mouseMoveMessage(password: string, x: number, y: number): Uint8Array {
+  return auraEncrypt(
+    password,
+    JSON.stringify({ msgType: 'mouseMove', x: Math.round(x), y: Math.round(y) }),
+  );
+}
+
+/** Left-button press and release (a tap). */
+export function mouseClickMessages(password: string): Uint8Array[] {
+  return (['press', 'release'] as const).map(action =>
+    auraEncrypt(password, JSON.stringify({ msgType: 'mouseClick', action, button: 'left' })),
+  );
+}
+
+/** Scroll wheel; the AuraHD app sends ±50 per step. */
+export function mouseRollMessage(password: string, value: number): Uint8Array {
+  return auraEncrypt(
+    password,
+    JSON.stringify({ msgType: 'mouseRoll', value: Math.round(value), orientation: 'vertical' }),
+  );
 }
 
 // --------------------------------------------------------------- discovery
@@ -210,6 +247,8 @@ export interface AuraInfo {
   type: string;
   serialNumber: string;
   port: number;
+  screenWidth: number;
+  screenHeight: number;
 }
 
 /** Parses a box's discovery "Info" reply; null if it isn't one. */
@@ -233,6 +272,8 @@ export function parseInfo(bytes: Uint8Array): AuraInfo | null {
       type: String(info.type ?? 'MAG'),
       serialNumber: String(info.serialNumber ?? ''),
       port: Number.isInteger(port) && port > 0 && port < 65536 ? port : AURA_DEFAULT_COMMAND_PORT,
+      screenWidth: Number(info.screenWidth) > 0 ? Number(info.screenWidth) : 1280,
+      screenHeight: Number(info.screenHeight) > 0 ? Number(info.screenHeight) : 720,
     };
   } catch {
     return null;

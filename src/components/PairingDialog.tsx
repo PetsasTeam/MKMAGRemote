@@ -16,6 +16,7 @@ import {
 import { MAGDevice } from '../types';
 import MAGService from '../services/MAGService';
 import { MAG_REMOTE_PORT, isValidPairingCode } from '../services/magProtocol';
+import { t } from '../i18n';
 
 type Step = 'starting' | 'enter-code' | 'verifying' | 'error';
 
@@ -39,11 +40,7 @@ const PairingDialog: React.FC<Props> = ({ device, onPaired, onCancel }) => {
       await MAGService.startPairing(target.ip);
       setStep('enter-code');
     } catch {
-      setError(
-        `Couldn't reach the MAG box at ${target.ip}.\n\n` +
-          'Check that it is on, on the same Wi-Fi as this phone, and that ' +
-          'Settings → System settings → Remote control is enabled.',
-      );
+      setError(t('pair.unreachable', { ip: target.ip }));
       setStep('error');
     }
   }, []);
@@ -64,7 +61,7 @@ const PairingDialog: React.FC<Props> = ({ device, onPaired, onCancel }) => {
       return;
     }
     if (!isValidPairingCode(code)) {
-      setError('Enter the 6 digits shown on your TV.');
+      setError(t('pair.sixDigits'));
       return;
     }
     setError('');
@@ -75,9 +72,9 @@ const PairingDialog: React.FC<Props> = ({ device, onPaired, onCancel }) => {
         onPaired({ ...device, port: MAG_REMOTE_PORT, pairingCode: code });
         return;
       }
-      setError("That code wasn't accepted. Tap “Try again” to show a new code on your TV.");
+      setError(t('pair.rejected'));
     } catch {
-      setError('Pairing failed. Tap “Try again” to show a new code on your TV.');
+      setError(t('pair.failed'));
     }
     setStep('error');
   };
@@ -85,22 +82,22 @@ const PairingDialog: React.FC<Props> = ({ device, onPaired, onCancel }) => {
   return (
     <Portal>
       <Dialog visible={device !== null} onDismiss={handleCancel}>
-        <Dialog.Title>Pair with your MAG</Dialog.Title>
+        <Dialog.Title>{t('pair.title')}</Dialog.Title>
         <Dialog.Content>
           {step === 'starting' && (
             <View style={styles.row}>
               <ActivityIndicator />
-              <Paragraph style={styles.rowText}>Connecting to {device?.ip}…</Paragraph>
+              <Paragraph style={styles.rowText}>
+                {t('pair.connecting', { ip: device?.ip ?? '' })}
+              </Paragraph>
             </View>
           )}
 
           {step === 'enter-code' && (
             <>
-              <Paragraph style={styles.text}>
-                A 6-digit code is now shown on your TV. Enter it below.
-              </Paragraph>
+              <Paragraph style={styles.text}>{t('pair.enterCode')}</Paragraph>
               <TextInput
-                label="Pairing code"
+                label={t('pair.codeLabel')}
                 value={code}
                 onChangeText={value => setCode(value.replace(/\D/g, '').slice(0, 6))}
                 keyboardType="number-pad"
@@ -118,21 +115,21 @@ const PairingDialog: React.FC<Props> = ({ device, onPaired, onCancel }) => {
           {step === 'verifying' && (
             <View style={styles.row}>
               <ActivityIndicator />
-              <Paragraph style={styles.rowText}>Checking code…</Paragraph>
+              <Paragraph style={styles.rowText}>{t('pair.checking')}</Paragraph>
             </View>
           )}
 
           {step === 'error' && <Paragraph>{error}</Paragraph>}
         </Dialog.Content>
         <Dialog.Actions>
-          <Button onPress={handleCancel}>Cancel</Button>
+          <Button onPress={handleCancel}>{t('common.cancel')}</Button>
           {step === 'enter-code' && (
             <Button onPress={handleSubmit} disabled={code.length !== 6}>
-              Pair
+              {t('connect.pair')}
             </Button>
           )}
           {step === 'error' && device && (
-            <Button onPress={() => requestCode(device)}>Try again</Button>
+            <Button onPress={() => requestCode(device)}>{t('common.tryAgain')}</Button>
           )}
         </Dialog.Actions>
       </Dialog>

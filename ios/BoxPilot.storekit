@@ -1,0 +1,51 @@
+{
+  "identifier" : "6C1F0B7E",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "0.0",
+      "familyShareable" : false,
+      "internalID" : "6C1F0B71",
+      "localizations" : [
+        {
+          "description" : "Use every BoxPilot feature free for 24 hours.",
+          "displayName" : "1-day Trial",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.iptvmkremote.trial",
+      "referenceName" : "1-day Trial",
+      "type" : "NonConsumable"
+    },
+    {
+      "displayPrice" : "4.99",
+      "familyShareable" : true,
+      "internalID" : "6C1F0B72",
+      "localizations" : [
+        {
+          "description" : "Unlock BoxPilot for good. One purchase, no subscription.",
+          "displayName" : "Unlock BoxPilot",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.iptvmkremote.unlock",
+      "referenceName" : "Unlock BoxPilot",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "6C1F0B70",
+    "_developerTeamID" : "YLE8N7AAH2",
+    "_locale" : "en_US",
+    "_storefront" : "USA"
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

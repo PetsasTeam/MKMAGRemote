@@ -17,15 +17,19 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../App';
 import { useDevice } from '../context/DeviceContext';
+import { useEntitlement } from '../context/EntitlementContext';
+import { timeLeft } from '../services/PurchaseService';
 import { MAGDevice } from '../types';
 import { useMagConnect } from '../hooks/useMagConnect';
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import MAGService from '../services/MAGService';
 import DeviceDiscoveryService, {
   isValidIPv4,
+  makeDemoDevice,
   makeMagDevice,
 } from '../services/DeviceDiscoveryService';
 import { colors, radius, spacing, type } from '../theme/tokens';
+import { t } from '../i18n';
 
 type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Home'>;
 
@@ -38,6 +42,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [showManualDialog, setShowManualDialog] = useState(false);
   const [manualIp, setManualIp] = useState('');
   const [checkingIp, setCheckingIp] = useState(false);
+  const { entitlement } = useEntitlement();
   const keyboardHeight = useKeyboardHeight();
   const insets = useSafeAreaInsets();
   const { connect, connectingId, pairingDialog } = useMagConnect(device =>
@@ -51,7 +56,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const handleManualConnect = async () => {
     const ip = manualIp.trim();
     if (!isValidIPv4(ip)) {
-      Alert.alert('Check the IP address', 'Enter it as shown on the box, like 192.168.1.50');
+      Alert.alert(t('ip.invalidTitle'), t('ip.invalidBody'));
       return;
     }
     setShowManualDialog(false);
@@ -64,9 +69,13 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const confirmRemove = (device: MAGDevice) => {
-    Alert.alert(`Remove ${device.name}?`, 'You can add it again any time.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: () => removeSavedDevice(device.id) },
+    Alert.alert(t('home.removeTitle', { name: device.name }), t('home.removeBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('common.remove'),
+        style: 'destructive',
+        onPress: () => removeSavedDevice(device.id),
+      },
     ]);
   };
 
@@ -82,11 +91,11 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         onLongPress={() => confirmRemove(item)}
         disabled={connectingId !== null}
         accessibilityRole="button"
-        accessibilityHint="Opens the remote. Long-press to remove."
+        accessibilityHint={t('home.rowHint')}
         style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
         <View style={[styles.tile, connected && styles.tileActive]}>
           <Icon
-            source="television"
+            source={item.protocol === 'demo' ? 'television-play' : 'television'}
             size={22}
             color={connected ? colors.accentText : colors.textSecondary}
           />
@@ -96,7 +105,11 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             {item.name}
           </Text>
           <Text style={[styles.rowSubtitle, connected && styles.connectedText]} numberOfLines={1}>
-            {connected ? 'Connected' : item.ip}
+            {connected
+              ? t('home.connected')
+              : item.protocol === 'demo'
+                ? t('home.demoSubtitle')
+                : item.ip}
           </Text>
         </View>
         {connecting ? (
@@ -113,42 +126,47 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       <View style={styles.emptyIcon}>
         <Icon source="remote-tv" size={40} color={colors.accentText} />
       </View>
-      <Text style={styles.emptyTitle}>Add your MAG box</Text>
-      <Text style={styles.emptyBody}>
-        Make sure Remote control is on in the box's settings and your phone is on the same Wi-Fi.
-      </Text>
+      <Text style={styles.emptyTitle}>{t('home.addYourBox')}</Text>
+      <Text style={styles.emptyBody}>{t('home.addYourBoxBody')}</Text>
       <Button
         mode="contained"
         onPress={() => navigation.navigate('DeviceDiscovery')}
         style={styles.primaryButton}
         contentStyle={styles.buttonContent}
         labelStyle={styles.buttonLabel}>
-        Find boxes
+        {t('home.findBoxes')}
       </Button>
       <Button
         mode="text"
         onPress={() => setShowManualDialog(true)}
         textColor={colors.textSecondary}>
-        Enter IP address
+        {t('home.enterIp')}
+      </Button>
+      <Button
+        mode="text"
+        icon="television-play"
+        onPress={() => connect(makeDemoDevice(t('home.demoName')))}
+        textColor={colors.textMuted}>
+        {t('home.tryDemo')}
       </Button>
     </View>
   );
 
   const extras = (
     <View style={styles.extras}>
-      <Text style={styles.sectionLabel}>SHORTCUTS</Text>
+      <Text style={styles.sectionLabel}>{t('home.shortcuts')}</Text>
       <View style={styles.extrasRow}>
         <Pressable
           onPress={() => navigation.navigate('Macros')}
           style={({ pressed }) => [styles.extraCard, pressed && styles.rowPressed]}>
           <Icon source="lightning-bolt-outline" size={20} color={colors.accentText} />
-          <Text style={styles.extraText}>Macros</Text>
+          <Text style={styles.extraText}>{t('nav.macros')}</Text>
         </Pressable>
         <Pressable
           onPress={() => navigation.navigate('QuickActions')}
           style={({ pressed }) => [styles.extraCard, pressed && styles.rowPressed]}>
           <Icon source="star-outline" size={20} color={colors.accentText} />
-          <Text style={styles.extraText}>Quick actions</Text>
+          <Text style={styles.extraText}>{t('nav.quickActions')}</Text>
         </Pressable>
       </View>
     </View>
@@ -157,13 +175,20 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <View style={[styles.container, { paddingTop: insets.top + spacing.lg }]}>
       <View style={styles.titleRow}>
-        <Text style={type.title}>Devices</Text>
+        <View>
+          <Text style={type.title}>{t('nav.devices')}</Text>
+          {entitlement.status === 'trial' && (
+            <Pressable onPress={() => navigation.navigate('Settings')} hitSlop={6}>
+              <Text style={styles.trialBadge}>{trialLabel(entitlement.endsAt)}</Text>
+            </Pressable>
+          )}
+        </View>
         <View style={styles.titleActions}>
           {savedDevices.length > 0 && (
             <Pressable
               onPress={() => navigation.navigate('DeviceDiscovery')}
               style={styles.headerButton}
-              accessibilityLabel="Add a box"
+              accessibilityLabel={t('nav.addBox')}
               hitSlop={6}>
               <Icon source="plus" size={22} color={colors.text} />
             </Pressable>
@@ -171,7 +196,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           <Pressable
             onPress={() => navigation.navigate('Settings')}
             style={styles.headerButton}
-            accessibilityLabel="Settings"
+            accessibilityLabel={t('nav.settings')}
             hitSlop={6}>
             <Icon source="cog-outline" size={20} color={colors.textSecondary} />
           </Pressable>
@@ -187,11 +212,11 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           keyExtractor={item => item.id}
           contentContainerStyle={styles.list}
           ItemSeparatorComponent={Separator}
-          ListHeaderComponent={<Text style={styles.sectionLabel}>YOUR BOXES</Text>}
+          ListHeaderComponent={<Text style={styles.sectionLabel}>{t('home.yourBoxes')}</Text>}
           ListFooterComponent={
             <>
               <Pressable onPress={() => setShowManualDialog(true)} style={styles.ipLink}>
-                <Text style={styles.ipLinkText}>Enter an IP address instead</Text>
+                <Text style={styles.ipLinkText}>{t('home.enterIpInstead')}</Text>
               </Pressable>
               {extras}
             </>
@@ -202,7 +227,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       {checkingIp && (
         <View style={styles.checking}>
           <ActivityIndicator color={colors.text} />
-          <Text style={styles.checkingText}>Checking the box…</Text>
+          <Text style={styles.checkingText}>{t('home.checking')}</Text>
         </View>
       )}
 
@@ -211,11 +236,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           visible={showManualDialog}
           onDismiss={() => setShowManualDialog(false)}
           style={[styles.dialog, { marginBottom: keyboardHeight }]}>
-          <Dialog.Title style={styles.dialogTitle}>Enter IP address</Dialog.Title>
+          <Dialog.Title style={styles.dialogTitle}>{t('ip.title')}</Dialog.Title>
           <Dialog.Content>
-            <Text style={styles.dialogBody}>
-              Find it on the box under Settings → System settings → Network.
-            </Text>
+            <Text style={styles.dialogBody}>{t('ip.where')}</Text>
             <TextInput
               mode="outlined"
               value={manualIp}
@@ -234,10 +257,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           </Dialog.Content>
           <Dialog.Actions>
             <Button onPress={() => setShowManualDialog(false)} textColor={colors.textSecondary}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button onPress={handleManualConnect} textColor={colors.accentText}>
-              Connect
+              {t('common.connect')}
             </Button>
           </Dialog.Actions>
         </Dialog>
@@ -249,6 +272,13 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 };
 
 const Separator = () => <View style={styles.separator} />;
+
+function trialLabel(endsAt: number): string {
+  const { hours, minutes } = timeLeft(endsAt, Date.now());
+  const time =
+    hours > 0 ? t('paywall.hours', { count: hours }) : t('paywall.minutes', { count: minutes });
+  return t('paywall.trialLeft', { time });
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -262,6 +292,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.control,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  trialBadge: {
+    color: colors.accentText,
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
   },
   titleActions: {
     flexDirection: 'row',

@@ -230,7 +230,7 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for de
 
 ## 📝 License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+Proprietary. All rights reserved. See [LICENSE](LICENSE).
 
 ## ⚠️ Disclaimer
 

@@ -25,8 +25,7 @@ import {
 const ID = { devId: '0123456789abcdef', devDescr: 'IPTV MK Remote' };
 const CODE = '259518';
 
-const hex = (bytes: Uint8Array) =>
-  Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+const hex = (bytes: Uint8Array) => Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
 const fromHex = (h: string) => Uint8Array.from(h.match(/../g)!.map(b => parseInt(b, 16)));
 
 const VECTORS = {

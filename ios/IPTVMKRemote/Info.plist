@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>MAG Remote</string>
+	<string>BoxPilot</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -39,15 +39,8 @@
 			</dict>
 		</dict>
 	</dict>
-	<key>NSBonjourServices</key>
-	<array>
-		<string>_http._tcp</string>
-		<string>_https._tcp</string>
-	</array>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>This app needs access to your local network to communicate with and control your MAG IPTV device.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>This app needs access to your location to discover MAG devices on your local network.</string>
+	<string>BoxPilot finds and controls your MAG box over your home Wi-Fi.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>MaterialCommunityIcons.ttf</string>

@@ -6,6 +6,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Icon } from 'react-native-paper';
 import { MAGCommand } from '../../types';
+import { t } from '../../i18n';
 import { colors } from '../../theme/tokens';
 import RemoteKey from './RemoteKey';
 
@@ -22,25 +23,25 @@ const directions = [
   {
     command: MAGCommand.UP,
     icon: 'chevron-up',
-    label: 'Up',
+    label: t('key.up'),
     style: { top: 0, left: ZONE, width: OK_SIZE, height: ZONE },
   },
   {
     command: MAGCommand.DOWN,
     icon: 'chevron-down',
-    label: 'Down',
+    label: t('key.down'),
     style: { bottom: 0, left: ZONE, width: OK_SIZE, height: ZONE },
   },
   {
     command: MAGCommand.LEFT,
     icon: 'chevron-left',
-    label: 'Left',
+    label: t('key.left'),
     style: { left: 0, top: ZONE, width: ZONE, height: OK_SIZE },
   },
   {
     command: MAGCommand.RIGHT,
     icon: 'chevron-right',
-    label: 'Right',
+    label: t('key.right'),
     style: { right: 0, top: ZONE, width: ZONE, height: OK_SIZE },
   },
 ];
@@ -63,7 +64,7 @@ const DPad: React.FC<Props> = ({ onKey, haptics }) => (
     <RemoteKey
       onPress={() => onKey(MAGCommand.OK)}
       haptics={haptics}
-      accessibilityLabel="OK"
+      accessibilityLabel={t('key.ok')}
       pressedColor={colors.accentPressed}
       style={styles.ok}>
       <Text style={styles.okText}>OK</Text>

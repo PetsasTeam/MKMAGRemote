@@ -22,7 +22,7 @@
     "set-top-box"
   ],
   "author": "PetsasTeam",
-  "license": "MIT",
+  "license": "UNLICENSED",
   "dependencies": {
     "@react-native-async-storage/async-storage": "^1.21.0",
     "@react-native-community/netinfo": "^12.0.1",
@@ -33,6 +33,7 @@
     "react-native": "0.73.2",
     "react-native-gesture-handler": "^2.14.1",
     "react-native-haptic-feedback": "^2.3.3",
+    "react-native-iap": "^12.16.4",
     "react-native-lan-port-scanner": "^1.4.2",
     "react-native-network-info": "^5.2.1",
     "react-native-pager-view": "^6.2.3",
@@ -42,7 +43,8 @@
     "react-native-tab-view": "^3.5.2",
     "react-native-tcp-socket": "^6.0.6",
     "react-native-udp": "^4.1.6",
-    "react-native-vector-icons": "^10.0.3"
+    "react-native-vector-icons": "^10.0.3",
+    "react-native-volume-manager": "^1.10.0"
   },
   "devDependencies": {
     "@babel/core": "^7.23.7",
@@ -69,5 +71,6 @@
   "engines": {
     "node": ">=18",
     "npm": ">=9"
-  }
+  },
+  "private": true
 }

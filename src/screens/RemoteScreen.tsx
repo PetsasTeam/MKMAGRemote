@@ -5,7 +5,7 @@
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Button, Dialog, Icon, Modal, Portal, Snackbar, TextInput } from 'react-native-paper';
+import { Button, Icon, Modal, Portal, Snackbar } from 'react-native-paper';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../App';
@@ -15,8 +15,11 @@ import MAGService from '../services/MAGService';
 import RemoteKey, { tapHaptic } from '../components/remote/RemoteKey';
 import DPad from '../components/remote/DPad';
 import Rocker from '../components/remote/Rocker';
-import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
+import Touchpad from '../components/remote/Touchpad';
+import TypeOnTvDialog from '../components/TypeOnTvDialog';
+import { useVolumeButtons } from '../hooks/useVolumeButtons';
 import { colors, radius, spacing } from '../theme/tokens';
+import { t } from '../i18n';
 
 type RemoteScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Remote'>;
 type RemoteScreenRouteProp = RouteProp<RootStackParamList, 'Remote'>;
@@ -46,18 +49,26 @@ const RemoteScreen: React.FC<Props> = ({ navigation, route }) => {
   const [message, setMessage] = useState('');
   const [showNumbers, setShowNumbers] = useState(false);
   const [showText, setShowText] = useState(false);
-  const [text, setText] = useState('');
-  const keyboardHeight = useKeyboardHeight();
+  const [mode, setMode] = useState<'buttons' | 'touchpad'>('buttons');
+  const touchpad = MAGService.supportsTouchpad();
 
   const send = useCallback(async (command: MAGCommand) => {
     if (!supported(command)) {
-      setMessage("This box doesn't support that key over Wi-Fi");
+      setMessage(t('remote.unsupported'));
       return;
     }
     if (!(await MAGService.sendCommand(command))) {
-      setMessage("Couldn't reach the box. Check it's on and on the same Wi-Fi.");
+      setMessage(t('remote.unreachable'));
     }
   }, []);
+
+  const unreachable = useCallback(() => setMessage(t('remote.unreachable')), []);
+
+  useVolumeButtons(
+    settings.volumeButtons !== false,
+    () => send(MAGCommand.VOL_UP),
+    () => send(MAGCommand.VOL_DOWN),
+  );
 
   useEffect(() => {
     navigation.setOptions({
@@ -74,7 +85,7 @@ const RemoteScreen: React.FC<Props> = ({ navigation, route }) => {
           <Pressable
             onPress={() => setShowText(true)}
             style={styles.headerButton}
-            accessibilityLabel="Type text on TV"
+            accessibilityLabel={t('remote.typeOnTv')}
             hitSlop={6}>
             <Icon source="keyboard-outline" size={20} color={colors.textSecondary} />
           </Pressable>
@@ -84,7 +95,7 @@ const RemoteScreen: React.FC<Props> = ({ navigation, route }) => {
               send(MAGCommand.POWER);
             }}
             style={[styles.headerButton, !supported(MAGCommand.POWER) && styles.dimmed]}
-            accessibilityLabel="Power"
+            accessibilityLabel={t('key.power')}
             hitSlop={6}>
             <Icon source="power" size={20} color={colors.danger} />
           </Pressable>
@@ -95,20 +106,11 @@ const RemoteScreen: React.FC<Props> = ({ navigation, route }) => {
 
   useEffect(() => {
     if (!MAGService.isConnected()) {
-      Alert.alert('Not connected', 'Connect to your MAG box again.', [
-        { text: 'OK', onPress: () => navigation.goBack() },
+      Alert.alert(t('remote.notConnectedTitle'), t('remote.notConnectedBody'), [
+        { text: t('common.ok'), onPress: () => navigation.goBack() },
       ]);
     }
   }, [navigation]);
-
-  const sendText = async () => {
-    const value = text;
-    setShowText(false);
-    setText('');
-    if (value) {
-      setMessage((await MAGService.sendText(value)) ? 'Sent to TV' : "Couldn't send the text");
-    }
-  };
 
   const roundKey = (command: MAGCommand, icon: string, label: string) => (
     <View style={styles.roundKeyWrap}>
@@ -151,19 +153,50 @@ const RemoteScreen: React.FC<Props> = ({ navigation, route }) => {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <DPad onKey={send} haptics={haptics} />
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        scrollEnabled={mode === 'buttons'}>
+        {touchpad && (
+          <View style={styles.segment}>
+            {(['buttons', 'touchpad'] as const).map(item => (
+              <Pressable
+                key={item}
+                onPress={() => setMode(item)}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: mode === item }}
+                style={[styles.segmentItem, mode === item && styles.segmentActive]}>
+                <Icon
+                  source={item === 'buttons' ? 'remote' : 'gesture-tap'}
+                  size={16}
+                  color={mode === item ? colors.text : colors.textMuted}
+                />
+                <Text style={[styles.segmentText, mode === item && styles.segmentTextActive]}>
+                  {item === 'buttons' ? t('remote.buttons') : t('remote.touchpad')}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
+
+        {mode === 'touchpad' && touchpad ? (
+          <Touchpad haptics={haptics} onError={unreachable} />
+        ) : (
+          <DPad onKey={send} haptics={haptics} />
+        )}
 
         <View style={styles.systemRow}>
-          {roundKey(MAGCommand.BACK, 'arrow-u-left-top', 'Back')}
-          {roundKey(MAGCommand.MENU, 'home-outline', 'Menu')}
-          {roundKey(MAGCommand.EXIT, 'close', 'Exit')}
-          {roundKey(MAGCommand.INFO, 'information-outline', 'Info')}
+          {roundKey(MAGCommand.BACK, 'arrow-u-left-top', t('key.back'))}
+          {roundKey(MAGCommand.MENU, 'home-outline', t('key.menu'))}
+          {roundKey(MAGCommand.EXIT, 'close', t('key.exit'))}
+          {roundKey(MAGCommand.INFO, 'information-outline', t('key.info'))}
         </View>
 
         <View style={styles.rockerRow}>
           <Rocker
             label="VOL"
+            upLabel={t('key.volUp')}
+            downLabel={t('key.volDown')}
             upIcon="plus"
             downIcon="minus"
             onUp={() => send(MAGCommand.VOL_UP)}
@@ -177,20 +210,22 @@ const RemoteScreen: React.FC<Props> = ({ navigation, route }) => {
               onPress={() => send(MAGCommand.MUTE)}
               dimmed={!supported(MAGCommand.MUTE)}
               haptics={haptics}
-              accessibilityLabel="Mute"
+              accessibilityLabel={t('key.mute')}
               style={styles.roundKey}>
               <Icon source="volume-off" size={22} color={colors.text} />
             </RemoteKey>
             <RemoteKey
               onPress={() => setShowNumbers(true)}
               haptics={haptics}
-              accessibilityLabel="Number pad"
+              accessibilityLabel={t('remote.numberPad')}
               style={styles.numbersKey}>
               <Text style={styles.numbersText}>123</Text>
             </RemoteKey>
           </View>
           <Rocker
             label="CH"
+            upLabel={t('key.chUp')}
+            downLabel={t('key.chDown')}
             upIcon="chevron-up"
             downIcon="chevron-down"
             onUp={() => send(MAGCommand.CH_UP)}
@@ -202,26 +237,26 @@ const RemoteScreen: React.FC<Props> = ({ navigation, route }) => {
         </View>
 
         <View style={styles.playbackBar}>
-          {playbackKey(MAGCommand.PREV, 'skip-previous', 'Previous')}
-          {playbackKey(MAGCommand.REWIND, 'rewind', 'Rewind')}
+          {playbackKey(MAGCommand.PREV, 'skip-previous', t('key.prev'))}
+          {playbackKey(MAGCommand.REWIND, 'rewind', t('key.rewind'))}
           <RemoteKey
             onPress={() => send(MAGCommand.PLAY)}
             dimmed={!supported(MAGCommand.PLAY)}
             haptics={haptics}
-            accessibilityLabel="Play or pause"
+            accessibilityLabel={t('remote.playPause')}
             pressedColor={colors.textSecondary}
             style={styles.playMain}>
             <Icon source="play-pause" size={26} color={colors.background} />
           </RemoteKey>
-          {playbackKey(MAGCommand.FORWARD, 'fast-forward', 'Fast forward')}
-          {playbackKey(MAGCommand.NEXT, 'skip-next', 'Next')}
+          {playbackKey(MAGCommand.FORWARD, 'fast-forward', t('key.forward'))}
+          {playbackKey(MAGCommand.NEXT, 'skip-next', t('key.next'))}
         </View>
 
         <View style={styles.colourRow}>
-          {colourKey(MAGCommand.RED, colors.keyRed, 'Red')}
-          {colourKey(MAGCommand.GREEN, colors.keyGreen, 'Green')}
-          {colourKey(MAGCommand.YELLOW, colors.keyYellow, 'Yellow')}
-          {colourKey(MAGCommand.BLUE, colors.keyBlue, 'Blue')}
+          {colourKey(MAGCommand.RED, colors.keyRed, t('key.red'))}
+          {colourKey(MAGCommand.GREEN, colors.keyGreen, t('key.green'))}
+          {colourKey(MAGCommand.YELLOW, colors.keyYellow, t('key.yellow'))}
+          {colourKey(MAGCommand.BLUE, colors.keyBlue, t('key.blue'))}
         </View>
       </ScrollView>
 
@@ -245,7 +280,7 @@ const RemoteScreen: React.FC<Props> = ({ navigation, route }) => {
             <RemoteKey
               onPress={() => send(MAGCommand.BACK)}
               haptics={haptics}
-              accessibilityLabel="Back"
+              accessibilityLabel={t('key.back')}
               style={[styles.numKey, styles.numKeyQuiet]}>
               <Icon source="backspace-outline" size={22} color={colors.textSecondary} />
             </RemoteKey>
@@ -270,41 +305,11 @@ const RemoteScreen: React.FC<Props> = ({ navigation, route }) => {
             onPress={() => setShowNumbers(false)}
             textColor={colors.textSecondary}
             style={styles.sheetDone}>
-            Done
+            {t('common.done')}
           </Button>
         </Modal>
 
-        <Dialog
-          visible={showText}
-          onDismiss={() => setShowText(false)}
-          style={[styles.dialog, { marginBottom: keyboardHeight }]}>
-          <Dialog.Title style={styles.dialogTitle}>Type on TV</Dialog.Title>
-          <Dialog.Content>
-            <TextInput
-              mode="outlined"
-              value={text}
-              onChangeText={setText}
-              placeholder="Search, URL or login"
-              autoFocus
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="send"
-              onSubmitEditing={sendText}
-              outlineColor={colors.border}
-              activeOutlineColor={colors.accent}
-              textColor={colors.text}
-              style={styles.dialogInput}
-            />
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setShowText(false)} textColor={colors.textSecondary}>
-              Cancel
-            </Button>
-            <Button onPress={sendText} textColor={colors.accentText}>
-              Send
-            </Button>
-          </Dialog.Actions>
-        </Dialog>
+        <TypeOnTvDialog visible={showText} onClose={() => setShowText(false)} />
 
         <Snackbar
           visible={message !== ''}
@@ -362,6 +367,33 @@ const styles = StyleSheet.create({
   },
   dimmed: {
     opacity: 0.35,
+  },
+  segment: {
+    flexDirection: 'row',
+    alignSelf: 'stretch',
+    backgroundColor: colors.surface,
+    borderRadius: radius.pill,
+    padding: 3,
+  },
+  segmentItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: radius.pill,
+  },
+  segmentActive: {
+    backgroundColor: colors.controlPressed,
+  },
+  segmentText: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  segmentTextActive: {
+    color: colors.text,
   },
   systemRow: {
     flexDirection: 'row',
@@ -502,16 +534,6 @@ const styles = StyleSheet.create({
   },
   sheetDone: {
     marginTop: spacing.md,
-  },
-  dialog: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.xl,
-  },
-  dialogTitle: {
-    color: colors.text,
-  },
-  dialogInput: {
-    backgroundColor: colors.background,
   },
   snackbar: {
     backgroundColor: colors.control,

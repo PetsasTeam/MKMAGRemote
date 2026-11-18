@@ -25,6 +25,7 @@ import DeviceDiscoveryService, {
 import { useMagConnect } from '../hooks/useMagConnect';
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { colors, radius, spacing, type } from '../theme/tokens';
+import { t } from '../i18n';
 
 type DeviceDiscoveryScreenNavigationProp = StackNavigationProp<
   RootStackParamList,
@@ -35,12 +36,7 @@ interface Props {
   navigation: DeviceDiscoveryScreenNavigationProp;
 }
 
-const CHECKS = [
-  'The box is on',
-  'Your phone and the box are on the same Wi-Fi',
-  'On the box: Settings → System settings → Remote control → "Use remote control" is on',
-  'On iPhone: Settings → Privacy & Security → Local Network → MAG Remote is on',
-];
+const CHECKS = [t('scan.check1'), t('scan.check2'), t('scan.check3'), t('scan.check4')];
 
 const DeviceDiscoveryScreen: React.FC<Props> = ({ navigation }) => {
   const [scanning, setScanning] = useState(false);
@@ -70,8 +66,8 @@ const DeviceDiscoveryScreen: React.FC<Props> = ({ navigation }) => {
       );
     } catch (error) {
       Alert.alert(
-        error instanceof NoWifiError ? 'Not on Wi-Fi' : "Couldn't scan",
-        error instanceof Error ? error.message : 'Something went wrong while scanning.',
+        error instanceof NoWifiError ? t('scan.noWifiTitle') : t('scan.failedTitle'),
+        error instanceof NoWifiError ? t('scan.noWifiBody') : t('scan.failedBody'),
       );
     } finally {
       setScanning(false);
@@ -88,7 +84,7 @@ const DeviceDiscoveryScreen: React.FC<Props> = ({ navigation }) => {
   const handleManualAdd = async () => {
     const ip = manualIp.trim();
     if (!isValidIPv4(ip)) {
-      Alert.alert('Check the IP address', 'Enter it as shown on the box, like 192.168.1.50');
+      Alert.alert(t('ip.invalidTitle'), t('ip.invalidBody'));
       return;
     }
     setShowManualDialog(false);
@@ -98,10 +94,7 @@ const DeviceDiscoveryScreen: React.FC<Props> = ({ navigation }) => {
       if (device) {
         setDevices(prev => mergeDiscovered(prev, device));
       } else {
-        Alert.alert(
-          `No box answered at ${ip}`,
-          'Check the IP address, that your phone is on the same Wi-Fi, and that "Use remote control" is on.',
-        );
+        Alert.alert(t('scan.noAnswerTitle', { ip }), t('scan.noAnswerBody'));
       }
     } finally {
       setScanning(false);
@@ -124,14 +117,13 @@ const DeviceDiscoveryScreen: React.FC<Props> = ({ navigation }) => {
           {item.name}
         </Text>
         <Text style={styles.rowSubtitle} numberOfLines={1}>
-          {item.ip} ·{' '}
-          {item.protocol === 'aurahd' ? 'Uses the box password' : 'Pairs with a TV code'}
+          {item.ip} · {item.protocol === 'aurahd' ? t('scan.usesPassword') : t('scan.usesCode')}
         </Text>
       </View>
       {connectingId === item.id ? (
         <ActivityIndicator color={colors.textSecondary} />
       ) : (
-        <Text style={styles.connectText}>Connect</Text>
+        <Text style={styles.connectText}>{t('common.connect')}</Text>
       )}
     </Pressable>
   );
@@ -141,7 +133,9 @@ const DeviceDiscoveryScreen: React.FC<Props> = ({ navigation }) => {
       <View style={styles.statusLine}>
         <Icon source="radar" size={18} color={colors.accentText} />
         <Text style={styles.statusText}>
-          Searching your Wi-Fi…{devices.length > 0 ? ` ${devices.length} found` : ''}
+          {devices.length > 0
+            ? t('scan.searchingFound', { count: devices.length })
+            : t('scan.searching')}
         </Text>
       </View>
       <View style={styles.track}>
@@ -150,15 +144,15 @@ const DeviceDiscoveryScreen: React.FC<Props> = ({ navigation }) => {
     </View>
   ) : devices.length > 0 ? (
     <Text style={styles.sectionLabel}>
-      {devices.length === 1 ? '1 BOX FOUND' : `${devices.length} BOXES FOUND`}
+      {devices.length === 1 ? t('scan.oneFound') : t('scan.manyFound', { count: devices.length })}
     </Text>
   ) : null;
 
   const nothingFound =
     scanned && !scanning && devices.length === 0 ? (
       <View style={styles.helpCard}>
-        <Text style={styles.helpTitle}>No boxes found</Text>
-        <Text style={styles.helpBody}>Check that:</Text>
+        <Text style={styles.helpTitle}>{t('scan.noneTitle')}</Text>
+        <Text style={styles.helpBody}>{t('scan.checkThat')}</Text>
         {CHECKS.map(check => (
           <View key={check} style={styles.helpItem}>
             <Icon source="check-circle-outline" size={16} color={colors.textMuted} />
@@ -178,7 +172,7 @@ const DeviceDiscoveryScreen: React.FC<Props> = ({ navigation }) => {
         ItemSeparatorComponent={Separator}
         ListHeaderComponent={
           <>
-            <Text style={styles.intro}>Looking for MAG boxes with Remote control turned on.</Text>
+            <Text style={styles.intro}>{t('scan.intro')}</Text>
             {status}
           </>
         }
@@ -193,13 +187,13 @@ const DeviceDiscoveryScreen: React.FC<Props> = ({ navigation }) => {
           style={styles.primaryButton}
           contentStyle={styles.buttonContent}
           labelStyle={styles.buttonLabel}>
-          {scanning ? 'Searching…' : 'Scan again'}
+          {scanning ? t('scan.searchingButton') : t('scan.again')}
         </Button>
         <Button
           mode="text"
           onPress={() => setShowManualDialog(true)}
           textColor={colors.textSecondary}>
-          Enter IP address
+          {t('home.enterIp')}
         </Button>
       </View>
 
@@ -208,11 +202,9 @@ const DeviceDiscoveryScreen: React.FC<Props> = ({ navigation }) => {
           visible={showManualDialog}
           onDismiss={() => setShowManualDialog(false)}
           style={[styles.dialog, { marginBottom: keyboardHeight }]}>
-          <Dialog.Title style={styles.dialogTitle}>Enter IP address</Dialog.Title>
+          <Dialog.Title style={styles.dialogTitle}>{t('ip.title')}</Dialog.Title>
           <Dialog.Content>
-            <Text style={styles.dialogBody}>
-              Find it on the box under Settings → System settings → Network.
-            </Text>
+            <Text style={styles.dialogBody}>{t('ip.where')}</Text>
             <TextInput
               mode="outlined"
               value={manualIp}
@@ -231,10 +223,10 @@ const DeviceDiscoveryScreen: React.FC<Props> = ({ navigation }) => {
           </Dialog.Content>
           <Dialog.Actions>
             <Button onPress={() => setShowManualDialog(false)} textColor={colors.textSecondary}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button onPress={handleManualAdd} textColor={colors.accentText}>
-              Add
+              {t('common.add')}
             </Button>
           </Dialog.Actions>
         </Dialog>

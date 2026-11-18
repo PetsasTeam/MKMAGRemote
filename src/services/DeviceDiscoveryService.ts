@@ -43,6 +43,8 @@ export function makeAuraDevice(ip: string, info: AuraInfo): DiscoveredDevice {
     model,
     protocol: 'aurahd',
     serial: info.serialNumber || undefined,
+    screenWidth: info.screenWidth,
+    screenHeight: info.screenHeight,
   };
 }
 
@@ -113,6 +115,20 @@ export function makeMagDevice(ip: string): MAGDevice {
     ip,
     port: MAG_REMOTE_PORT,
     model: 'MAG',
+  };
+}
+
+/** A pretend box for trying the app without hardware (also used by App Review). */
+export function makeDemoDevice(name: string): MAGDevice {
+  return {
+    id: 'demo',
+    name,
+    ip: 'demo',
+    port: 0,
+    model: 'Demo',
+    protocol: 'demo',
+    screenWidth: 1280,
+    screenHeight: 720,
   };
 }
 

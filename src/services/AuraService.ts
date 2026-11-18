@@ -13,6 +13,9 @@ import {
   buttonMessages,
   charMessages,
   isPingResponse,
+  mouseClickMessages,
+  mouseMoveMessage,
+  mouseRollMessage,
   parseInfo,
   pingRequest,
   solicitMessage,
@@ -275,6 +278,7 @@ class AuraService {
     closeQuietly(this.socket);
     this.socket = null;
     this.device = null;
+    this.pointer = null;
   }
 
   isConnected(): boolean {
@@ -323,6 +327,52 @@ class AuraService {
       return true;
     } catch (error) {
       console.warn('AuraHD: failed to send button', command, error);
+      return false;
+    }
+  }
+
+  // Pointer position on the TV, tracked here because the box wants absolute
+  // coordinates. Starts in the middle of the screen.
+  private pointer: { x: number; y: number } | null = null;
+
+  private screen() {
+    return {
+      width: this.device?.screenWidth ?? 1280,
+      height: this.device?.screenHeight ?? 720,
+    };
+  }
+
+  /** Move the pointer by (dx, dy) screen pixels. */
+  async moveMouse(dx: number, dy: number): Promise<boolean> {
+    const { width, height } = this.screen();
+    const from = this.pointer ?? { x: width / 2, y: height / 2 };
+    const clamp = (v: number, max: number) => Math.min(Math.max(v, 0), max);
+    this.pointer = { x: clamp(from.x + dx, width - 1), y: clamp(from.y + dy, height - 1) };
+    try {
+      await this.enqueue([
+        mouseMoveMessage(this.device?.password ?? '', this.pointer.x, this.pointer.y),
+      ]);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async click(): Promise<boolean> {
+    try {
+      await this.enqueue(mouseClickMessages(this.device?.password ?? ''));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Scroll: positive scrolls one way, negative the other (±50 per step). */
+  async scroll(value: number): Promise<boolean> {
+    try {
+      await this.enqueue([mouseRollMessage(this.device?.password ?? '', value)]);
+      return true;
+    } catch {
       return false;
     }
   }

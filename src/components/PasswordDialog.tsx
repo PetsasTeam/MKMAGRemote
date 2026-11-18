@@ -9,6 +9,7 @@ import { Button, Dialog, HelperText, Paragraph, Portal, TextInput } from 'react-
 import { MAGDevice } from '../types';
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { colors, radius } from '../theme/tokens';
+import { t } from '../i18n';
 
 interface Props {
   /** Device to ask about; the dialog is shown while this is non-null. */
@@ -40,14 +41,13 @@ const PasswordDialog: React.FC<Props> = ({ device, error, onSubmit, onCancel }) 
         visible={device !== null}
         onDismiss={onCancel}
         style={[styles.dialog, { marginBottom: keyboardHeight }]}>
-        <Dialog.Title style={styles.title}>Box password</Dialog.Title>
+        <Dialog.Title style={styles.title}>{t('password.title')}</Dialog.Title>
         <Dialog.Content>
           <Paragraph style={styles.text}>
-            Enter the password set on {device?.name ?? 'the box'} under Settings → System settings →
-            Remote control. Leave it empty if the box has no password.
+            {t('password.body', { name: device?.name ?? t('password.theBox') })}
           </Paragraph>
           <TextInput
-            label="Password"
+            label={t('password.label')}
             value={password}
             onChangeText={setPassword}
             // number-pad has no Return key; this one has a "Go" key that submits.
@@ -69,10 +69,10 @@ const PasswordDialog: React.FC<Props> = ({ device, error, onSubmit, onCancel }) 
         </Dialog.Content>
         <Dialog.Actions>
           <Button onPress={onCancel} textColor={colors.textSecondary}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button onPress={submit} textColor={colors.accentText}>
-            Connect
+            {t('common.connect')}
           </Button>
         </Dialog.Actions>
       </Dialog>
