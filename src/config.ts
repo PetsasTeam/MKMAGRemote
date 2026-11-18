@@ -3,7 +3,7 @@
  */
 
 /** Where "Contact support" in Settings sends email. Empty hides the entry. */
-export const SUPPORT_EMAIL = '';
+export const SUPPORT_EMAIL: string = 'michaliskallis@hotmail.com';
 
 /** Apple's standard licence agreement, used as the Terms of Use. */
 export const TERMS_URL = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';

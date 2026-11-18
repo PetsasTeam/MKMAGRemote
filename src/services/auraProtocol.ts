@@ -18,9 +18,9 @@
  *    "unicode":..,"metaState":..,"characters":""}             (buttons / text)
  * A wrong password gets no usable reply.
  */
-import CryptoJS from 'crypto-js';
 import { MAGCommand } from '../types';
-import { bytesToWordArray, utf8DecodeStrict, utf8Encode, wordArrayToBytes } from './magProtocol';
+import { utf8DecodeStrict, utf8Encode } from './magProtocol';
+import { aesCbcDecrypt, aesCbcEncrypt } from './nativeCrypto';
 
 export const AURA_DISCOVERY_PORT = 6000;
 export const AURA_DEFAULT_COMMAND_PORT = 7666;
@@ -103,12 +103,7 @@ export function auraKey(password: string): Uint8Array {
 }
 
 export function auraEncrypt(password: string, plaintext: string): Uint8Array {
-  const encrypted = CryptoJS.AES.encrypt(
-    bytesToWordArray(utf8Encode(plaintext)),
-    bytesToWordArray(auraKey(password)),
-    { iv: CryptoJS.enc.Utf8.parse(IV), mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 },
-  );
-  return wordArrayToBytes(encrypted.ciphertext);
+  return aesCbcEncrypt(auraKey(password), utf8Encode(IV), utf8Encode(plaintext));
 }
 
 /** Decrypts a reply; null if it doesn't decrypt to valid UTF-8 (e.g. wrong password). */
@@ -117,15 +112,8 @@ export function auraDecrypt(password: string, ciphertext: Uint8Array): string | 
     return null;
   }
   try {
-    const decrypted = CryptoJS.AES.decrypt(
-      CryptoJS.lib.CipherParams.create({ ciphertext: bytesToWordArray(ciphertext) }),
-      bytesToWordArray(auraKey(password)),
-      { iv: CryptoJS.enc.Utf8.parse(IV), mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 },
-    );
-    if (decrypted.sigBytes <= 0) {
-      return null;
-    }
-    return utf8DecodeStrict(wordArrayToBytes(decrypted));
+    const decrypted = aesCbcDecrypt(auraKey(password), utf8Encode(IV), ciphertext);
+    return decrypted && decrypted.length > 0 ? utf8DecodeStrict(decrypted) : null;
   } catch {
     return null;
   }

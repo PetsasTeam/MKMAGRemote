@@ -30,6 +30,6 @@ BoxPilot is free to download with a 1-day free trial. After that, a single one-t
 
 ## Contact
 
-Email: SUPPORT_EMAIL_HERE
+Email: michaliskallis@hotmail.com
 
 BoxPilot is an independent app, not affiliated with or endorsed by Infomir. MAG is a trademark of Infomir.

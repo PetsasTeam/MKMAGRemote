@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		08C1C9D90A92516F99C050DF /* libPods-IPTVMKRemote.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 45EB89BCB8476031F545B7E8 /* libPods-IPTVMKRemote.a */; };
 		13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB01A68108700A75B9A /* AppDelegate.mm */; };
+		B0C5C0DE1A00000000000001 /* BoxCrypto.m in Sources */ = {isa = PBXBuildFile; fileRef = B0C5C0DE1A00000000000002 /* BoxCrypto.m */; };
 		13B07FC11A68108700A75B9A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 		A1C0FFEE0000000000000002 /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1C0FFEE0000000000000001 /* Images.xcassets */; };
@@ -20,6 +21,7 @@
 		13B07FAF1A68108700A75B9A /* AppDelegate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = AppDelegate.h; path = IPTVMKRemote/AppDelegate.h; sourceTree = "<group>"; };
 		13B07FB01A68108700A75B9A /* AppDelegate.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = AppDelegate.mm; path = IPTVMKRemote/AppDelegate.mm; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = IPTVMKRemote/Info.plist; sourceTree = "<group>"; };
+		B0C5C0DE1A00000000000002 /* BoxCrypto.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = BoxCrypto.m; path = IPTVMKRemote/BoxCrypto.m; sourceTree = "<group>"; };
 		13B07FB71A68108700A75B9A /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = main.m; path = IPTVMKRemote/main.m; sourceTree = "<group>"; };
 		203B6D9C393584FD0AA8043B /* Pods-IPTVMKRemote.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-IPTVMKRemote.debug.xcconfig"; path = "Target Support Files/Pods-IPTVMKRemote/Pods-IPTVMKRemote.debug.xcconfig"; sourceTree = "<group>"; };
 		45EB89BCB8476031F545B7E8 /* libPods-IPTVMKRemote.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-IPTVMKRemote.a"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -49,6 +51,7 @@
 				A1C0FFEE0000000000000001 /* Images.xcassets */,
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB71A68108700A75B9A /* main.m */,
+				B0C5C0DE1A00000000000002 /* BoxCrypto.m */,
 			);
 			name = IPTVMKRemote;
 			sourceTree = "<group>";
@@ -269,6 +272,7 @@
 			files = (
 				13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */,
 				13B07FC11A68108700A75B9A /* main.m in Sources */,
+				B0C5C0DE1A00000000000001 /* BoxCrypto.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -281,7 +285,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = YLE8N7AAH2;
 				ENABLE_BITCODE = NO;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
@@ -312,7 +316,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = YLE8N7AAH2;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				INFOPLIST_FILE = IPTVMKRemote/Info.plist;

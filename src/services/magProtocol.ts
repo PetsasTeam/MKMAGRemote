@@ -18,7 +18,7 @@
  * This module is pure (no React Native imports) so it can be unit tested.
  */
 
-import CryptoJS from 'crypto-js';
+import { aesEncryptBlock, sha1 } from './nativeCrypto';
 
 export const MAG_REMOTE_PORT = 40611;
 
@@ -110,23 +110,6 @@ export function utf8DecodeStrict(bytes: Uint8Array): string | null {
   return result;
 }
 
-export function bytesToWordArray(bytes: Uint8Array): CryptoJS.lib.WordArray {
-  const words: number[] = [];
-  for (let i = 0; i < bytes.length; i++) {
-    words[i >>> 2] |= bytes[i] << (24 - (i % 4) * 8);
-  }
-  return CryptoJS.lib.WordArray.create(words, bytes.length);
-}
-
-export function wordArrayToBytes(wordArray: CryptoJS.lib.WordArray): Uint8Array {
-  const { words, sigBytes } = wordArray;
-  const out = new Uint8Array(sigBytes);
-  for (let i = 0; i < sigBytes; i++) {
-    out[i] = (words[i >>> 2] >>> (24 - (i % 4) * 8)) & 0xff;
-  }
-  return out;
-}
-
 function concatBytes(...parts: Uint8Array[]): Uint8Array {
   const total = parts.reduce((sum, p) => sum + p.length, 0);
   const out = new Uint8Array(total);
@@ -145,21 +128,13 @@ function concatBytes(...parts: Uint8Array[]): Uint8Array {
 /** AES key = first 16 bytes of SHA1(utf8(pairingCode) + salt). */
 export function deriveKey(pairingCode: string): Uint8Array {
   const material = concatBytes(utf8Encode(pairingCode), Uint8Array.from(KEY_SALT));
-  const digest = wordArrayToBytes(CryptoJS.SHA1(bytesToWordArray(material)));
+  const digest = sha1(material);
   return digest.slice(0, 16);
-}
-
-function aesEncryptBlock(key: CryptoJS.lib.WordArray, block: Uint8Array): Uint8Array {
-  const encrypted = CryptoJS.AES.encrypt(bytesToWordArray(block), key, {
-    mode: CryptoJS.mode.ECB,
-    padding: CryptoJS.pad.NoPadding,
-  });
-  return wordArrayToBytes(encrypted.ciphertext);
 }
 
 /** AES-128-CFB with 128-bit segments; works for any data length. */
 function aesCfb(pairingCode: string, data: Uint8Array, decrypt: boolean): Uint8Array {
-  const key = bytesToWordArray(deriveKey(pairingCode));
+  const key = deriveKey(pairingCode);
   const out = new Uint8Array(data.length);
   let feedback = Uint8Array.from(IV);
   for (let offset = 0; offset < data.length; offset += 16) {

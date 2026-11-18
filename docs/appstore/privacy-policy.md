@@ -16,6 +16,6 @@ BoxPilot does not collect, store or share any personal data.
 
 **Children.** BoxPilot is not directed at children and collects no data from anyone.
 
-**Contact.** Questions about this policy: SUPPORT_EMAIL_HERE
+**Contact.** Questions about this policy: michaliskallis@hotmail.com
 
 BoxPilot is an independent app, not affiliated with or endorsed by Infomir. MAG is a trademark of Infomir.
