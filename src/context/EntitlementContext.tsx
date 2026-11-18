@@ -13,6 +13,7 @@ import PurchaseService, {
   mergeOwned,
 } from '../services/PurchaseService';
 import { t } from '../i18n';
+import { OWNER_BUILD } from '../buildFlags';
 
 interface EntitlementContextType {
   entitlement: Entitlement;
@@ -38,7 +39,7 @@ export const EntitlementProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [price, setPrice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const skipped = useRef(false);
+  const skipped = useRef(OWNER_BUILD);
 
   const refresh = useCallback(() => {
     setEntitlement(skipped.current ? { status: 'unlocked' } : evaluate(owned.current, Date.now()));

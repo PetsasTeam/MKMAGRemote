@@ -63,3 +63,5 @@ yarn-error.log
 # Misc
 .vscode/
 .fleet/
+ios/build-owner/
+release/
