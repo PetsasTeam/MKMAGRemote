@@ -1,13 +1,13 @@
 # App Store listing
 
-Character limits are App Store Connect's. Keep "MAG" out of the app name: the
-name is **BoxPilot** and the subtitle carries the search term.
+Character limits are App Store Connect's. Submitted 19 Nov 2026 as
+**BoxPilot: Remote for MAG** ("for MAG" describes compatibility; Infomir owns the MAG trademark).
 
 ## English (primary)
 
-**Name** (30): BoxPilot
+**Name** (30): BoxPilot: Remote for MAG
 
-**Subtitle** (30): Remote for MAG boxes
+**Subtitle** (30): Fast TV remote for your box
 
 **Promotional text** (170):
 A fast, one-handed remote for your MAG box. Live typing, touchpad, macros and channel shortcuts. Try it free for a day.
@@ -40,9 +40,9 @@ mag,infomir,remote,stb,iptv,set top box,tv remote,controller,aura,stalker,minist
 
 ## Greek
 
-**Name:** BoxPilot
+**Name:** BoxPilot: Remote for MAG
 
-**Subtitle:** Τηλεχειριστήριο για MAG
+**Subtitle:** Γρήγορο τηλεχειριστήριο TV
 
 **Promotional text:**
 Γρήγορο τηλεχειριστήριο για ένα χέρι για το MAG box σας. Ζωντανή πληκτρολόγηση, touchpad, μακροεντολές και συντομεύσεις καναλιών. Δοκιμάστε το δωρεάν για μία ημέρα.
@@ -76,7 +76,7 @@ Create both as **Non-Consumable** in App Store Connect → your app → Monetiza
 | Product ID | Reference name | Display name | Price | Description |
 |---|---|---|---|---|
 | `com.iptvmkremote.trial` | 1-day Trial | 1-day Trial | Free (tier 0) | Use every BoxPilot feature free for 24 hours. |
-| `com.iptvmkremote.unlock` | Unlock BoxPilot | Unlock BoxPilot | your price | Unlock BoxPilot for good. One purchase, no subscription. |
+| `com.iptvmkremote.unlock` | Unlock BoxPilot | Unlock BoxPilot | €2.99 | Unlock BoxPilot for good. One purchase, no subscription. |
 
 Apple's guideline 3.1.1 requires the free-trial item to be a non-consumable named
 "XX-day Trial" at the free price, and the app to say how long the trial lasts and
